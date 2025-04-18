@@ -1,0 +1,45 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Permitir a los usuarios autenticados leer y escribir sus propios datos
+    match /users/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+    
+    // Permitir a los usuarios autenticados leer todos los usuarios
+    // Esto es necesario para mostrar nombres de profesores, etc.
+    match /users/{userId} {
+      allow read: if request.auth != null;
+    }
+    
+    // Reglas para las clases
+    match /classes/{classId} {
+      // Cualquier usuario autenticado puede leer clases
+      allow read: if request.auth != null;
+      
+      // Solo profesores pueden crear clases
+      allow create: if request.auth != null;
+      
+      // Solo el creador de la clase o un administrador puede actualizar o eliminar
+      allow update, delete: if request.auth != null && 
+                            (resource.data.teacherId == request.auth.uid);
+    }
+    
+    // Reglas para inscripciones
+    match /enrollments/{enrollmentId} {
+      // Cualquier usuario autenticado puede leer inscripciones
+      allow read: if request.auth != null;
+      
+      // Cualquier usuario autenticado puede crear inscripciones
+      allow create: if request.auth != null;
+      
+      // Solo el usuario inscrito o el profesor de la clase pueden actualizar o eliminar
+      allow update, delete: if request.auth != null;
+    }
+    
+    // Regla por defecto: denegar todo lo demás
+    match /{document=**} {
+      allow read, write: if request.auth != null;
+    }
+  }
+}

@@ -1,77 +1,66 @@
 "use client"
 
 import type React from "react"
-import { createContext, useContext, useState, useEffect } from "react"
 
-type Language = "en" | "es"
+import { createContext, useContext, useEffect, useState } from "react"
+import { es } from "@/locales/es"
+import { en } from "@/locales/en"
+import type { Locale } from "@/types"
 
-interface LanguageContextType {
-  language: Language
-  setLanguage: (language: Language) => void
+interface LanguageContextProps {
+  language: Locale
+  languageReady: boolean
+  setLanguage: (lang: Locale) => void
   t: (key: string) => string
 }
 
-const translations = {
-  en: {
-    "app.title": "HABY Class",
-    "theme.light": "Light",
-    "theme.dark": "Dark",
-    "theme.system": "System",
-    "nav.home": "Home",
-    "nav.dashboard": "Dashboard",
-    "nav.classes": "Classes",
-    "nav.calendar": "Calendar",
-    "nav.messages": "Messages",
-    "nav.settings": "Settings",
-    "auth.signin": "Sign In",
-    "auth.signup": "Sign Up",
-    "auth.signout": "Sign Out",
-    // Add more translations as needed
-  },
-  es: {
-    "app.title": "HABY Clase",
-    "theme.light": "Claro",
-    "theme.dark": "Oscuro",
-    "theme.system": "Sistema",
-    "nav.home": "Inicio",
-    "nav.dashboard": "Panel",
-    "nav.classes": "Clases",
-    "nav.calendar": "Calendario",
-    "nav.messages": "Mensajes",
-    "nav.settings": "Configuración",
-    "auth.signin": "Iniciar Sesión",
-    "auth.signup": "Registrarse",
-    "auth.signout": "Cerrar Sesión",
-    // Add more translations as needed
-  },
+const LanguageContext = createContext<LanguageContextProps | undefined>(undefined)
+
+interface LanguageProviderProps {
+  children: React.ReactNode
+  defaultLanguage?: Locale
 }
 
-const LanguageContext = createContext<LanguageContextType | undefined>(undefined)
+export function LanguageProvider({ children, defaultLanguage = "es" }: LanguageProviderProps) {
+  const [language, setLanguageState] = useState<Locale>(defaultLanguage)
+  const [translations, setTranslations] = useState<Record<string, string>>(language === "es" ? es : en)
+  const [languageReady, setLanguageReady] = useState(false)
 
-export function LanguageProvider({ children }: { children: React.ReactNode }) {
-  const [language, setLanguage] = useState<Language>("en")
-
-  // Try to load language preference from localStorage on client side
+  // Cargar el idioma guardado al iniciar
   useEffect(() => {
-    const savedLanguage = localStorage.getItem("language") as Language
-    if (savedLanguage && (savedLanguage === "en" || savedLanguage === "es")) {
-      setLanguage(savedLanguage)
+    const savedLanguage = localStorage.getItem("language") as Locale | null
+    if (savedLanguage && (savedLanguage === "es" || savedLanguage === "en")) {
+      setLanguageState(savedLanguage)
+      setTranslations(savedLanguage === "es" ? es : en)
     }
+    setLanguageReady(true)
   }, [])
 
-  // Save language preference to localStorage when it changes
+  // Actualizar traducciones cuando cambia el idioma
   useEffect(() => {
-    localStorage.setItem("language", language)
+    setTranslations(language === "es" ? es : en)
+    // Actualizar el atributo lang del HTML
+    document.documentElement.lang = language === "es" ? "es-MX" : "en-US"
   }, [language])
 
-  const t = (key: string): string => {
-    return translations[language][key as keyof (typeof translations)[typeof language]] || key
+  // Función para cambiar el idioma
+  const setLanguage = (lang: Locale) => {
+    setLanguageState(lang)
+    localStorage.setItem("language", lang)
   }
 
-  return <LanguageContext.Provider value={{ language, setLanguage, t }}>{children}</LanguageContext.Provider>
+  // Función para obtener traducciones
+  const t = (key: string): string => {
+    return translations[key] || key
+  }
+
+  return (
+    <LanguageContext.Provider value={{ language, languageReady, setLanguage, t }}>{children}</LanguageContext.Provider>
+  )
 }
 
-export function useLanguage() {
+// Hook personalizado para usar el contexto de idioma
+export const useLanguage = () => {
   const context = useContext(LanguageContext)
   if (context === undefined) {
     throw new Error("useLanguage must be used within a LanguageProvider")

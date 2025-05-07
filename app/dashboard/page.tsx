@@ -1,6 +1,6 @@
 import Sidebar from "@/components/dashboard/sidebar"
 
-export default function DashboardPage() {
+const DashboardPage = () => {
   return (
     <div className="flex h-screen bg-gray-100">
       {/* Sidebar */}
@@ -15,3 +15,5 @@ export default function DashboardPage() {
     </div>
   )
 }
+
+export default DashboardPage

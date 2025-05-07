@@ -1,34 +1,37 @@
 import type React from "react"
-import { Suspense } from "react"
-import type { Metadata } from "next"
 import { Inter } from "next/font/google"
 import "./globals.css"
-import { ThemeProvider } from "@/components/theme-provider"
-import { Toaster } from "@/components/ui/toaster"
-import { AuthProvider } from "@/providers/auth-provider"
+import { ThemeProvider } from "@/providers/theme-provider"
 import { LanguageProvider } from "@/providers/language-provider"
+import { AuthProvider } from "@/providers/auth-provider"
+import { Toaster } from "@/components/ui/toaster"
+import { Analytics } from "@/components/analytics"
 
-const inter = Inter({ subsets: ["latin"] })
+const inter = Inter({
+  subsets: ["latin"],
+  variable: "--font-inter",
+})
 
-export const metadata: Metadata = {
-  title: "HABY Class",
-  description: "A modern learning management system",
+export const metadata = {
+  title: "HABY-CLASS",
+  description: "Plataforma educativa moderna para simplificar la enseñanza y mejorar el aprendizaje",
     generator: 'v0.dev'
 }
 
 export default function RootLayout({
   children,
-}: {
+}: Readonly<{
   children: React.ReactNode
-}) {
+}>) {
   return (
-    <html lang="en" suppressHydrationWarning>
-      <body className={inter.className}>
-        <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
-          <LanguageProvider>
+    <html lang="es" suppressHydrationWarning>
+      <body className={`${inter.variable} font-sans antialiased`}>
+        <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+          <LanguageProvider defaultLanguage="es">
             <AuthProvider>
-              <Suspense fallback={<div>Loading...</div>}>{children}</Suspense>
+              {children}
               <Toaster />
+              <Analytics />
             </AuthProvider>
           </LanguageProvider>
         </ThemeProvider>

@@ -8,22 +8,13 @@ import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
-import { Logo } from "@/components/logo"
 import { useToast } from "@/hooks/use-toast"
-import { CustomCaptcha } from "@/components/auth/custom-captcha"
-import { TermsDialog } from "@/components/auth/terms-dialog"
-import { LanguageThemeSelector } from "@/components/language-theme-selector"
-import { SiteFooter } from "@/components/site-footer"
 import { useAuth } from "@/providers/auth-provider"
 import { Eye, EyeOff } from "lucide-react"
 
 export default function SignupPage() {
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
-  const [captchaValid, setCaptchaValid] = useState(false)
-  const [termsAccepted, setTermsAccepted] = useState(false)
   const [role, setRole] = useState<"student" | "teacher">("student")
 
   const router = useRouter()
@@ -33,8 +24,7 @@ export default function SignupPage() {
   // Definir el esquema de validación
   const formSchema = z
     .object({
-      firstName: z.string().min(1, "El nombre es obligatorio"),
-      lastName: z.string().min(1, "El apellido es obligatorio"),
+      username: z.string().min(1, "El nombre de usuario es obligatorio"),
       email: z.string().email("El correo electrónico no es válido"),
       folio: z.string().min(1, "El folio es obligatorio"),
       curp: z
@@ -66,8 +56,7 @@ export default function SignupPage() {
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      firstName: "",
-      lastName: "",
+      username: "",
       email: "",
       folio: "",
       curp: "",
@@ -82,28 +71,15 @@ export default function SignupPage() {
 
   // Manejar el envío del formulario
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
-    if (!captchaValid) {
-      toast({
-        title: "Error",
-        description: "Debes resolver correctamente el captcha",
-        variant: "destructive",
-      })
-      return
-    }
-
-    if (!termsAccepted) {
-      toast({
-        title: "Error",
-        description: "Debes aceptar los términos y condiciones",
-        variant: "destructive",
-      })
-      return
-    }
-
     try {
+      // Separar el nombre de usuario en nombre y apellido (simplificado)
+      const nameParts = values.username.split(" ")
+      const firstName = nameParts[0] || ""
+      const lastName = nameParts.slice(1).join(" ") || ""
+
       await register({
-        firstName: values.firstName,
-        lastName: values.lastName,
+        firstName,
+        lastName,
         email: values.email,
         password: values.password,
         role: role,
@@ -120,171 +96,175 @@ export default function SignupPage() {
   }
 
   return (
-    <div className="flex min-h-screen flex-col">
-      <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <div className="container flex h-16 items-center justify-between">
-          <Link href="/" className="flex items-center space-x-2">
-            <Logo className="h-8 w-8" width={32} height={32} showText />
-          </Link>
-          <LanguageThemeSelector />
-        </div>
-      </header>
-
-      <div className="flex-1 container max-w-md py-12">
-        <div className="flex flex-col items-center space-y-2 text-center mb-8">
-          <h1 className="text-2xl font-bold">
-            {role === "student" ? "Registro de Alumnos" : "Registro de Profesores"}
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            {role === "student"
-              ? "Ingresa tus datos para registrarte como alumno"
-              : "Ingresa tus datos para registrarte como profesor"}
-          </p>
+    <div className="flex min-h-screen items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
+      <div className="w-full max-w-md space-y-8 bg-white p-8 rounded-lg shadow-sm">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold text-gray-900">Crear Cuenta</h1>
         </div>
 
-        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-          <div className="space-y-4">
-            <RadioGroup
-              defaultValue={role}
-              onValueChange={(value) => setRole(value as "student" | "teacher")}
-              className="flex justify-center space-x-4"
-            >
-              <div className="flex items-center space-x-2">
-                <RadioGroupItem value="student" id="student" />
-                <Label htmlFor="student">Estudiante</Label>
-              </div>
-              <div className="flex items-center space-x-2">
-                <RadioGroupItem value="teacher" id="teacher" />
-                <Label htmlFor="teacher">Profesor</Label>
-              </div>
-            </RadioGroup>
-          </div>
+        {/* Role selector tabs */}
+        <div className="flex rounded-md overflow-hidden border border-gray-200">
+          <button
+            type="button"
+            onClick={() => setRole("student")}
+            className={`flex-1 py-2 px-4 text-center ${
+              role === "student" ? "bg-purple-600 text-white" : "bg-white text-gray-700 hover:bg-gray-50"
+            }`}
+          >
+            Estudiante
+          </button>
+          <button
+            type="button"
+            onClick={() => setRole("teacher")}
+            className={`flex-1 py-2 px-4 text-center ${
+              role === "teacher" ? "bg-purple-600 text-white" : "bg-white text-gray-700 hover:bg-gray-50"
+            }`}
+          >
+            Profesor
+          </button>
+        </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="firstName">Nombre</Label>
-              <Input
-                id="firstName"
-                {...form.register("firstName")}
-                error={!!errors.firstName}
-                aria-invalid={!!errors.firstName}
-              />
-              {errors.firstName && <p className="text-sm text-destructive">{errors.firstName.message}</p>}
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="lastName">Apellido</Label>
-              <Input
-                id="lastName"
-                {...form.register("lastName")}
-                error={!!errors.lastName}
-                aria-invalid={!!errors.lastName}
-              />
-              {errors.lastName && <p className="text-sm text-destructive">{errors.lastName.message}</p>}
-            </div>
+        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+          <div className="space-y-2">
+            <label htmlFor="username" className="block text-sm font-medium text-gray-700">
+              Nombre de Usuario
+            </label>
+            <Input
+              id="username"
+              placeholder="Ingrese su nombre de usuario"
+              {...form.register("username")}
+              error={!!errors.username}
+              className="w-full"
+            />
+            {errors.username && <p className="text-sm text-red-600">{errors.username.message}</p>}
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="email">Correo electrónico</Label>
+            <label htmlFor="email" className="block text-sm font-medium text-gray-700">
+              Correo Electrónico
+            </label>
             <Input
               id="email"
               type="email"
+              placeholder="correo@ejemplo.com"
               {...form.register("email")}
               error={!!errors.email}
-              aria-invalid={!!errors.email}
+              className="w-full"
             />
-            {errors.email && <p className="text-sm text-destructive">{errors.email.message}</p>}
+            {errors.email && <p className="text-sm text-red-600">{errors.email.message}</p>}
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="folio">Folio</Label>
-              <Input id="folio" {...form.register("folio")} error={!!errors.folio} aria-invalid={!!errors.folio} />
-              {errors.folio && <p className="text-sm text-destructive">{errors.folio.message}</p>}
-            </div>
+          <div className="space-y-2">
+            <label htmlFor="folio" className="block text-sm font-medium text-gray-700">
+              Folio
+            </label>
+            <Input
+              id="folio"
+              placeholder="Ingrese su folio"
+              {...form.register("folio")}
+              error={!!errors.folio}
+              className="w-full"
+            />
+            {errors.folio && <p className="text-sm text-red-600">{errors.folio.message}</p>}
+          </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="curp">CURP</Label>
-              <Input id="curp" {...form.register("curp")} error={!!errors.curp} aria-invalid={!!errors.curp} />
-              {errors.curp && <p className="text-sm text-destructive">{errors.curp.message}</p>}
-            </div>
+          <div className="space-y-2">
+            <label htmlFor="curp" className="block text-sm font-medium text-gray-700">
+              CURP
+            </label>
+            <Input
+              id="curp"
+              placeholder="Ingrese su CURP"
+              {...form.register("curp")}
+              error={!!errors.curp}
+              className="w-full"
+            />
+            {errors.curp && <p className="text-sm text-red-600">{errors.curp.message}</p>}
           </div>
 
           {role === "teacher" && (
             <div className="space-y-2">
-              <Label htmlFor="department">Departamento</Label>
+              <label htmlFor="department" className="block text-sm font-medium text-gray-700">
+                Departamento
+              </label>
               <Input
                 id="department"
+                placeholder="Ingrese su departamento"
                 {...form.register("department")}
                 error={!!errors.department}
-                aria-invalid={!!errors.department}
+                className="w-full"
               />
-              {errors.department && <p className="text-sm text-destructive">{errors.department.message}</p>}
+              {errors.department && <p className="text-sm text-red-600">{errors.department.message}</p>}
             </div>
           )}
 
           <div className="space-y-2">
-            <Label htmlFor="password">Contraseña</Label>
+            <label htmlFor="password" className="block text-sm font-medium text-gray-700">
+              Contraseña
+            </label>
             <div className="relative">
               <Input
                 id="password"
                 type={showPassword ? "text" : "password"}
+                placeholder="Contraseña"
                 {...form.register("password")}
                 error={!!errors.password}
-                aria-invalid={!!errors.password}
+                className="w-full pr-10"
               />
               <button
                 type="button"
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500"
                 onClick={() => setShowPassword(!showPassword)}
                 tabIndex={-1}
               >
                 {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
               </button>
             </div>
-            {errors.password && <p className="text-sm text-destructive">{errors.password.message}</p>}
+            {errors.password && <p className="text-sm text-red-600">{errors.password.message}</p>}
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="confirmPassword">Confirmar contraseña</Label>
+            <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700">
+              Confirmar Contraseña
+            </label>
             <div className="relative">
               <Input
                 id="confirmPassword"
                 type={showConfirmPassword ? "text" : "password"}
+                placeholder="Confirmar contraseña"
                 {...form.register("confirmPassword")}
                 error={!!errors.confirmPassword}
-                aria-invalid={!!errors.confirmPassword}
+                className="w-full pr-10"
               />
               <button
                 type="button"
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500"
                 onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                 tabIndex={-1}
               >
                 {showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}
               </button>
             </div>
-            {errors.confirmPassword && <p className="text-sm text-destructive">{errors.confirmPassword.message}</p>}
+            {errors.confirmPassword && <p className="text-sm text-red-600">{errors.confirmPassword.message}</p>}
           </div>
 
-          <CustomCaptcha onValidate={setCaptchaValid} />
-
-          <TermsDialog onAccept={setTermsAccepted} accepted={termsAccepted} />
-
-          <Button type="submit" className="w-full" isLoading={isSubmitting} loadingText="Creando cuenta...">
-            Crear cuenta
+          <Button
+            type="submit"
+            className="w-full bg-purple-600 hover:bg-purple-700 text-white py-2 px-4 rounded-md"
+            isLoading={isSubmitting}
+            loadingText="Registrando..."
+          >
+            Registrarse
           </Button>
         </form>
 
-        <div className="mt-6 text-center text-sm">
+        <div className="text-center text-sm text-gray-600">
           ¿Ya tienes una cuenta?{" "}
-          <Link href="/login" className="text-primary underline-offset-4 hover:underline">
-            Iniciar sesión
+          <Link href="/login" className="text-purple-600 hover:text-purple-500 font-medium">
+            Inicia Sesión
           </Link>
         </div>
       </div>
-
-      <SiteFooter />
     </div>
   )
 }

@@ -5,13 +5,16 @@ import Link from "next/link"
 import { DashboardShell } from "@/components/dashboard/shell"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { ArrowLeft, MoreHorizontal, Users, Calendar, FileText } from "lucide-react"
+import { ArrowLeft, MoreHorizontal, Users, Calendar, FileText, Info, Shield } from "lucide-react"
 import { ClassStream } from "@/components/class/stream"
 import { ClassAssignments } from "@/components/class/assignments"
 import { ClassPeople } from "@/components/class/people"
 import { ClassGrades } from "@/components/class/grades"
+import { ClassMaterials } from "@/components/class/materials"
 import { cn } from "@/lib/utils"
 import { useLanguage } from "@/providers/language-provider"
+import { useAuth } from "@/providers/auth-context"
+import { hasPermission } from "@/lib/roles-permissions"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -20,10 +23,13 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Badge } from "@/components/ui/badge"
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 
 export default function ClassPage({ params }: { params: { id: string } }) {
   const [activeTab, setActiveTab] = useState("stream")
   const { t } = useLanguage()
+  const { userData } = useAuth()
+  const userRole = userData?.role || "student"
 
   // En una aplicación real, obtendrías los datos de la clase según el ID
   const classData = {
@@ -31,6 +37,8 @@ export default function ClassPage({ params }: { params: { id: string } }) {
     title: "Matemáticas 101",
     description: "Introducción a conceptos matemáticos básicos y técnicas de resolución de problemas.",
     section: "Sección A",
+    subject: "Matemáticas",
+    room: "Aula 204",
     studentCount: 28,
     color: "bg-class-blue",
     teacherName: "Dr. Juan Pérez",
@@ -54,9 +62,38 @@ export default function ClassPage({ params }: { params: { id: string } }) {
               </Button>
             </Link>
             <h1 className="text-2xl font-bold tracking-tight">{classData.title}</h1>
+            {hasPermission(userRole, "edit_class") && (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Link href={`/dashboard/classes/${params.id}/settings`}>
+                      <Button variant="ghost" size="sm" className="ml-2">
+                        <Info className="h-4 w-4" />
+                        <span className="sr-only">Editar clase</span>
+                      </Button>
+                    </Link>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Editar información de la clase</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            )}
           </div>
           <p className="text-muted-foreground flex flex-wrap items-center gap-x-2 gap-y-1">
             <span>{classData.section}</span>
+            {classData.subject && (
+              <>
+                <span className="text-xs">•</span>
+                <span>{classData.subject}</span>
+              </>
+            )}
+            {classData.room && (
+              <>
+                <span className="text-xs">•</span>
+                <span>{classData.room}</span>
+              </>
+            )}
             <span className="text-xs">•</span>
             <span className="flex items-center">
               <Users className="h-4 w-4 mr-1" />
@@ -70,9 +107,11 @@ export default function ClassPage({ params }: { params: { id: string } }) {
         </div>
 
         <div className="flex items-center gap-2">
-          <Badge variant="outline" className="px-3 py-1 text-xs">
-            Código: {classData.code}
-          </Badge>
+          {hasPermission(userRole, "view_class") && (
+            <Badge variant="outline" className="px-3 py-1 text-xs">
+              Código: {classData.code}
+            </Badge>
+          )}
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -86,12 +125,21 @@ export default function ClassPage({ params }: { params: { id: string } }) {
                 <Calendar className="h-4 w-4 mr-2" />
                 Ver calendario
               </DropdownMenuItem>
-              <DropdownMenuItem>
-                <FileText className="h-4 w-4 mr-2" />
-                Exportar calificaciones
-              </DropdownMenuItem>
+              {hasPermission(userRole, "export_grades") && (
+                <DropdownMenuItem>
+                  <FileText className="h-4 w-4 mr-2" />
+                  Exportar calificaciones
+                </DropdownMenuItem>
+              )}
               <DropdownMenuSeparator />
-              <DropdownMenuItem className="text-destructive focus:text-destructive">Abandonar clase</DropdownMenuItem>
+              {hasPermission(userRole, "edit_class") ? (
+                <DropdownMenuItem className="text-destructive focus:text-destructive">
+                  <Shield className="h-4 w-4 mr-2" />
+                  Archivar clase
+                </DropdownMenuItem>
+              ) : (
+                <DropdownMenuItem className="text-destructive focus:text-destructive">Abandonar clase</DropdownMenuItem>
+              )}
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
@@ -118,22 +166,37 @@ export default function ClassPage({ params }: { params: { id: string } }) {
         <TabsList className="w-full sm:w-auto">
           <TabsTrigger value="stream">{t("class.tabs.stream")}</TabsTrigger>
           <TabsTrigger value="assignments">{t("class.tabs.assignments")}</TabsTrigger>
+          {hasPermission(userRole, "upload_materials") && <TabsTrigger value="materials">Materiales</TabsTrigger>}
           <TabsTrigger value="people">{t("class.tabs.people")}</TabsTrigger>
-          <TabsTrigger value="grades">{t("class.tabs.grades")}</TabsTrigger>
+          {(hasPermission(userRole, "grade_assignment") || hasPermission(userRole, "view_grades")) && (
+            <TabsTrigger value="grades">{t("class.tabs.grades")}</TabsTrigger>
+          )}
         </TabsList>
         <TabsContent value="stream" className="mt-6">
-          <ClassStream classId={params.id} />
+          <ClassStream classId={params.id} userRole={userRole} />
         </TabsContent>
         <TabsContent value="assignments" className="mt-6">
-          <ClassAssignments classId={params.id} />
+          <ClassAssignments classId={params.id} userRole={userRole} />
+        </TabsContent>
+        <TabsContent value="materials" className="mt-6">
+          <ClassMaterials classId={params.id} userRole={userRole} />
         </TabsContent>
         <TabsContent value="people" className="mt-6">
-          <ClassPeople classId={params.id} />
+          <ClassPeople classId={params.id} userRole={userRole} />
         </TabsContent>
         <TabsContent value="grades" className="mt-6">
-          <ClassGrades classId={params.id} />
+          <ClassGrades classId={params.id} userRole={userRole} />
         </TabsContent>
       </Tabs>
+
+      {/* Copyright notice */}
+      <div className="mt-12 pt-6 border-t text-center text-xs text-muted-foreground">
+        <p>
+          © {new Date().getFullYear()} HABY-CLASS. Todos los derechos reservados.
+          <br />
+          Desarrollado por HABY - Heber Zadkiel Garcia Perez
+        </p>
+      </div>
     </DashboardShell>
   )
 }

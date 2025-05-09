@@ -14,13 +14,16 @@ import { useLanguage } from "@/providers/language-provider"
 import { useTheme } from "next-themes"
 import { LoadingScreen } from "@/components/loading-screen"
 import { motion } from "framer-motion"
-import { Bell, Globe, Lock, Moon, Shield, User, Sun } from "lucide-react"
+import { Bell, Globe, Lock, Moon, Shield, User, Sun, Palette } from "lucide-react"
+import { useThemeColor } from "@/hooks/use-theme-color"
+import { themes } from "@/lib/themes"
 
 export default function SettingsPage() {
   const { userData, isLoading, updateUserProfile } = useAuth()
   const { toast } = useToast()
   const { language, setLanguage, t } = useLanguage()
   const { theme, setTheme } = useTheme()
+  const { themeColor, setThemeColor } = useThemeColor()
 
   const [isUpdating, setIsUpdating] = useState(false)
   const [notificationSettings, setNotificationSettings] = useState({
@@ -78,6 +81,14 @@ export default function SettingsPage() {
     toast({
       title: "Tema actualizado",
       description: newTheme === "dark" ? "El tema ha sido cambiado a oscuro." : "El tema ha sido cambiado a claro.",
+    })
+  }
+
+  const handleThemeColorChange = (themeId: string) => {
+    setThemeColor(themeId)
+    toast({
+      title: "Color del tema actualizado",
+      description: "El color del tema ha sido actualizado correctamente.",
     })
   }
 
@@ -176,6 +187,49 @@ export default function SettingsPage() {
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.3, delay: 0.2 }}
+            >
+              <Card className="shadow-soft">
+                <CardHeader>
+                  <CardTitle className="flex items-center">
+                    <Palette className="mr-2 h-5 w-5" />
+                    Colores del Tema
+                  </CardTitle>
+                  <CardDescription>Elige el esquema de colores que prefieras</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="themeColor">Esquema de colores</Label>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4">
+                      {themes.map((theme) => (
+                        <Button
+                          key={theme.id}
+                          variant="outline"
+                          className={`w-full justify-center p-4 h-auto flex flex-col items-center gap-2 ${
+                            themeColor.id === theme.id ? "ring-2 ring-primary" : ""
+                          }`}
+                          style={{
+                            borderColor: theme.primary,
+                          }}
+                          onClick={() => handleThemeColorChange(theme.id)}
+                        >
+                          <div className="flex gap-1">
+                            <div className="h-4 w-4 rounded-full" style={{ backgroundColor: theme.primary }} />
+                            <div className="h-4 w-4 rounded-full" style={{ backgroundColor: theme.secondary }} />
+                            <div className="h-4 w-4 rounded-full" style={{ backgroundColor: theme.accent }} />
+                          </div>
+                          <span className="text-xs font-medium">{theme.name}</span>
+                        </Button>
+                      ))}
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
+
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.3, delay: 0.3 }}
             >
               <Card className="shadow-soft">
                 <CardHeader>

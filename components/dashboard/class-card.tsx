@@ -33,7 +33,24 @@ export function ClassCard({ classData, studentCount = 0, teacherName }: ClassCar
     <Link href={`/dashboard/classes/${classData.id}`} className="block">
       <motion.div whileHover={{ y: -5 }} transition={{ duration: 0.2 }}>
         <Card className="h-full overflow-hidden transition-all hover:shadow-md relative group">
-          <div className={cn("h-2 w-full", classData.color)} />
+          <div
+            className={cn(
+              "h-2 w-full",
+              classData.color === "bg-purple-600"
+                ? "bg-haby-accent"
+                : classData.color === "bg-blue-600"
+                  ? "bg-haby-accent-light"
+                  : classData.color === "bg-green-600"
+                    ? "bg-haby-success"
+                    : classData.color === "bg-red-600"
+                      ? "bg-haby-error"
+                      : classData.color === "bg-amber-500"
+                        ? "bg-haby-warning"
+                        : classData.color === "bg-teal-600"
+                          ? "bg-haby-info"
+                          : classData.color || "bg-haby-accent",
+            )}
+          />
           <CardHeader className="pb-2">
             <div className="flex justify-between items-start">
               <div>

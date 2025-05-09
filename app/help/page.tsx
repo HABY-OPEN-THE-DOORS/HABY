@@ -6,6 +6,7 @@ import { LanguageThemeSelector } from "@/components/language-theme-selector"
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { BookOpen, GraduationCap, Shield } from "lucide-react"
 
 export default function HelpPage() {
   const faqs = [
@@ -54,16 +55,19 @@ export default function HelpPage() {
   const guides = [
     {
       title: "Guía para profesores",
+      icon: BookOpen,
       description: "Aprende a crear y gestionar tus clases, asignar tareas y calificar el trabajo de los estudiantes.",
       link: "/guides/teachers",
     },
     {
       title: "Guía para estudiantes",
+      icon: GraduationCap,
       description: "Aprende a unirte a clases, entregar tareas y comunicarte con tus profesores y compañeros.",
       link: "/guides/students",
     },
     {
       title: "Guía de administración",
+      icon: Shield,
       description: "Aprende a gestionar usuarios, clases y configuraciones a nivel de institución.",
       link: "/guides/admin",
     },
@@ -117,7 +121,10 @@ export default function HelpPage() {
                   {guides.map((guide, index) => (
                     <Card key={index}>
                       <CardHeader>
-                        <CardTitle>{guide.title}</CardTitle>
+                        <div className="flex items-center gap-2">
+                          <guide.icon className="h-5 w-5 text-purple-600" />
+                          <CardTitle>{guide.title}</CardTitle>
+                        </div>
                         <CardDescription>{guide.description}</CardDescription>
                       </CardHeader>
                       <CardContent>

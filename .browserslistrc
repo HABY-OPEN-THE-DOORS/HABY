@@ -1,0 +1,26 @@
+# Navegadores soportados por HABY-CLASS
+# Este archivo es utilizado por herramientas como Autoprefixer para generar
+# prefijos CSS compatibles con los navegadores especificados
+
+# Navegadores modernos (últimas 2 versiones)
+last 2 Chrome versions
+last 2 Firefox versions
+last 2 Safari versions
+last 2 Edge versions
+last 2 Opera versions
+
+# Soporte para iOS y Android
+last 2 iOS major versions
+last 2 Android major versions
+
+# Soporte para IE (opcional, comentado por defecto)
+# IE 11
+
+# Navegadores con más del 0.5% de uso global
+> 0.5%
+
+# No navegadores muertos
+not dead
+
+# Soporte para Firefox ESR (Extended Support Release)
+Firefox ESR

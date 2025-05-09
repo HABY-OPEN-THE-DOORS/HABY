@@ -2,26 +2,19 @@
 
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
+import { Checkbox } from "@/components/ui/checkbox"
 import {
   Dialog,
   DialogContent,
   DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
+  DialogFooter,
 } from "@/components/ui/dialog"
-import { Checkbox } from "@/components/ui/checkbox"
-import { Label } from "@/components/ui/label"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { useLanguage } from "@/providers/language-provider"
+import { Info } from "lucide-react"
 
-/**
- * Componente TermsDialog - Muestra un diálogo con los términos y condiciones
- * @param onAccept - Función callback que se llama cuando se aceptan los términos
- * @param accepted - Estado que indica si los términos han sido aceptados
- * @returns Componente React con el diálogo de términos
- */
 interface TermsDialogProps {
   onAccept: (accepted: boolean) => void
   accepted: boolean
@@ -29,7 +22,6 @@ interface TermsDialogProps {
 
 export function TermsDialog({ onAccept, accepted }: TermsDialogProps) {
   const [open, setOpen] = useState(false)
-  const { t } = useLanguage()
 
   const handleAccept = () => {
     onAccept(true)
@@ -37,133 +29,163 @@ export function TermsDialog({ onAccept, accepted }: TermsDialogProps) {
   }
 
   return (
-    <div className="flex items-start space-x-2">
-      <Checkbox
-        id="terms"
-        checked={accepted}
-        onCheckedChange={(checked) => onAccept(checked as boolean)}
-        className={accepted ? "border-primary text-primary" : ""}
-      />
+    <div className="flex items-start space-x-2 py-2">
+      <Checkbox id="terms" checked={accepted} onCheckedChange={(checked) => onAccept(!!checked)} className="mt-1" />
       <div className="grid gap-1.5 leading-none">
-        <div className="flex items-center gap-1">
-          <Label
-            htmlFor="terms"
-            className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-          >
-            {t("auth.signup.terms")}
-          </Label>
+        <label
+          htmlFor="terms"
+          className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+        >
+          Acepto los{" "}
           <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
-              <Button variant="link" className="h-auto p-0 text-sm">
-                {t("nav.terms")}
-              </Button>
+              <button className="text-purple-600 hover:underline focus:outline-none">términos y condiciones</button>
             </DialogTrigger>
-            <DialogContent className="sm:max-w-[600px] max-h-[80vh]">
+            <DialogContent className="sm:max-w-[600px]">
               <DialogHeader>
-                <DialogTitle>Términos y Condiciones de HABY</DialogTitle>
+                <DialogTitle>Términos y Condiciones de HABY-CLASS</DialogTitle>
                 <DialogDescription>
-                  Por favor, lee detenidamente los siguientes términos y condiciones antes de aceptar.
+                  Por favor, lee detenidamente los siguientes términos y condiciones antes de utilizar nuestra
+                  plataforma.
                 </DialogDescription>
               </DialogHeader>
-              <ScrollArea className="h-[50vh] rounded-md border p-4">
-                <div className="space-y-4 text-sm">
-                  <h3 className="text-lg font-semibold">1. Introducción</h3>
-                  <p>
-                    Bienvenido a HABY, una plataforma educativa desarrollada por Heber Zadkiel Garcia Perez. Estos
-                    términos y condiciones rigen el uso de nuestra plataforma y servicios relacionados.
-                  </p>
 
-                  <h3 className="text-lg font-semibold">2. Uso de la Plataforma</h3>
-                  <p>
-                    Al registrarte y utilizar HABY, aceptas usar la plataforma únicamente para fines educativos
-                    legítimos. No debes utilizar la plataforma para actividades ilegales, fraudulentas o que violen los
-                    derechos de otros usuarios.
-                  </p>
+              <ScrollArea className="h-[60vh] mt-4 pr-4">
+                <div className="space-y-6 text-sm">
+                  <section>
+                    <h3 className="text-base font-semibold mb-2">1. Introducción</h3>
+                    <p>
+                      Bienvenido a HABY-CLASS, una plataforma educativa diseñada para facilitar la enseñanza y el
+                      aprendizaje. Estos términos y condiciones rigen el uso de nuestra plataforma y establecen los
+                      derechos y obligaciones entre HABY-CLASS y sus usuarios.
+                    </p>
+                  </section>
 
-                  <h3 className="text-lg font-semibold">3. Cuentas de Usuario</h3>
-                  <p>
-                    Eres responsable de mantener la confidencialidad de tu información de cuenta, incluyendo tu
-                    contraseña. Notificarás inmediatamente a HABY sobre cualquier uso no autorizado de tu cuenta.
-                  </p>
+                  <section>
+                    <h3 className="text-base font-semibold mb-2">2. Recopilación de Datos</h3>
+                    <p className="mb-2">
+                      Para proporcionar nuestros servicios, recopilamos los siguientes datos personales:
+                    </p>
+                    <ul className="list-disc pl-5 space-y-1">
+                      <li>Nombre completo</li>
+                      <li>Dirección de correo electrónico</li>
+                      <li>Folio académico</li>
+                      <li>CURP (Clave Única de Registro de Población)</li>
+                      <li>Departamento académico (para profesores)</li>
+                      <li>Información de uso y actividad en la plataforma</li>
+                    </ul>
+                  </section>
 
-                  <h3 className="text-lg font-semibold">4. Contenido del Usuario</h3>
-                  <p>
-                    Al subir contenido a HABY, garantizas que tienes los derechos necesarios para compartir dicho
-                    contenido y otorgas a HABY una licencia no exclusiva para usar, modificar, ejecutar, copiar y
-                    mostrar dicho contenido en relación con los servicios de HABY.
-                  </p>
+                  <section>
+                    <h3 className="text-base font-semibold mb-2">3. Finalidad de los Datos</h3>
+                    <p className="mb-2">Los datos recopilados se utilizan para los siguientes propósitos:</p>
+                    <ul className="list-disc pl-5 space-y-1">
+                      <li>Crear y gestionar tu cuenta de usuario</li>
+                      <li>Autenticar tu identidad y prevenir el uso no autorizado</li>
+                      <li>Personalizar tu experiencia educativa</li>
+                      <li>Facilitar la comunicación entre estudiantes y profesores</li>
+                      <li>Mejorar nuestros servicios y desarrollar nuevas funcionalidades</li>
+                      <li>Cumplir con obligaciones legales y regulatorias</li>
+                    </ul>
+                  </section>
 
-                  <h3 className="text-lg font-semibold">5. Privacidad</h3>
-                  <p>
-                    Tu privacidad es importante para nosotros. Nuestra Política de Privacidad explica cómo recopilamos,
-                    usamos y protegemos tu información personal cuando utilizas nuestra plataforma.
-                  </p>
+                  <section>
+                    <h3 className="text-base font-semibold mb-2">4. Almacenamiento y Protección de Datos</h3>
+                    <p>
+                      Tus datos personales se almacenan en servidores seguros y se protegen mediante medidas técnicas y
+                      organizativas adecuadas para prevenir el acceso no autorizado, la pérdida o la alteración de la
+                      información. Utilizamos encriptación de datos y seguimos las mejores prácticas de la industria en
+                      materia de seguridad informática.
+                    </p>
+                  </section>
 
-                  <h3 className="text-lg font-semibold">6. Propiedad Intelectual</h3>
-                  <p>
-                    HABY y su contenido original, características y funcionalidad son propiedad de Heber Zadkiel Garcia
-                    Perez y están protegidos por leyes de propiedad intelectual.
-                  </p>
+                  <section>
+                    <h3 className="text-base font-semibold mb-2">5. Compartición de Datos</h3>
+                    <p>
+                      No compartimos tus datos personales con terceros sin tu consentimiento, excepto cuando sea
+                      necesario para proporcionar nuestros servicios o cuando estemos legalmente obligados a hacerlo.
+                    </p>
+                  </section>
 
-                  <h3 className="text-lg font-semibold">7. Terminación</h3>
-                  <p>
-                    HABY puede terminar o suspender tu acceso a la plataforma inmediatamente, sin previo aviso ni
-                    responsabilidad, por cualquier razón, incluyendo, sin limitación, si incumples estos Términos y
-                    Condiciones.
-                  </p>
+                  <section>
+                    <h3 className="text-base font-semibold mb-2">6. Derechos del Usuario</h3>
+                    <p className="mb-2">Como usuario, tienes derecho a:</p>
+                    <ul className="list-disc pl-5 space-y-1">
+                      <li>Acceder a tus datos personales</li>
+                      <li>Rectificar datos inexactos</li>
+                      <li>Solicitar la eliminación de tus datos</li>
+                      <li>Oponerte al tratamiento de tus datos</li>
+                      <li>Solicitar la limitación del tratamiento</li>
+                      <li>Solicitar la portabilidad de tus datos</li>
+                    </ul>
+                  </section>
 
-                  <h3 className="text-lg font-semibold">8. Limitación de Responsabilidad</h3>
-                  <p>
-                    En ningún caso HABY, sus directores, empleados o agentes serán responsables por cualquier daño
-                    indirecto, incidental, especial, consecuente o punitivo.
-                  </p>
+                  <section>
+                    <h3 className="text-base font-semibold mb-2">7. Responsabilidades del Usuario</h3>
+                    <p>
+                      Como usuario de HABY-CLASS, eres responsable de mantener la confidencialidad de tu cuenta y
+                      contraseña, así como de todas las actividades que se realicen bajo tu cuenta. Te comprometes a
+                      utilizar la plataforma de manera ética y legal, respetando los derechos de otros usuarios y
+                      cumpliendo con todas las leyes aplicables.
+                    </p>
+                  </section>
 
-                  <h3 className="text-lg font-semibold">9. Cambios a estos Términos</h3>
-                  <p>
-                    Nos reservamos el derecho de modificar estos términos de servicio en cualquier momento. Te
-                    notificaremos sobre cualquier cambio publicando los nuevos términos en esta plataforma.
-                  </p>
+                  <section>
+                    <h3 className="text-base font-semibold mb-2">8. Propiedad Intelectual</h3>
+                    <p>
+                      Todo el contenido disponible en HABY-CLASS, incluyendo pero no limitado a textos, gráficos,
+                      logotipos, iconos, imágenes, clips de audio, descargas digitales y software, es propiedad de
+                      HABY-CLASS o de sus proveedores de contenido y está protegido por las leyes de propiedad
+                      intelectual.
+                    </p>
+                  </section>
 
-                  <h3 className="text-lg font-semibold">10. Contacto</h3>
-                  <p>
-                    Si tienes alguna pregunta sobre estos Términos y Condiciones, por favor contáctanos a través de los
-                    canales de soporte disponibles en la plataforma.
-                  </p>
+                  <section>
+                    <h3 className="text-base font-semibold mb-2">9. Contacto</h3>
+                    <p>
+                      Si tienes preguntas o inquietudes sobre estos términos y condiciones o sobre el tratamiento de tus
+                      datos personales, puedes contactarnos a través de nuestro formulario de contacto o enviando un
+                      correo electrónico a privacy@haby-class.com.
+                    </p>
+                  </section>
 
-                  <h3 className="text-lg font-semibold">11. Cláusula de Exención de Responsabilidad</h3>
-                  <p>
-                    Al utilizar HABY, reconoces y aceptas que la plataforma se proporciona "tal cual" y "según
-                    disponibilidad", sin garantías de ningún tipo, ya sean expresas o implícitas. HABY no garantiza que
-                    la plataforma sea ininterrumpida, oportuna, segura o libre de errores.
-                  </p>
-                  <p>
-                    En la máxima medida permitida por la ley aplicable, HABY no será responsable por daños directos,
-                    indirectos, incidentales, especiales, consecuentes o punitivos, incluyendo, pero no limitado a,
-                    pérdida de beneficios, datos, uso, buena voluntad u otras pérdidas intangibles, resultantes de:
-                  </p>
-                  <ul className="list-disc pl-6 space-y-1">
-                    <li>El uso o la imposibilidad de usar la plataforma</li>
-                    <li>Cualquier cambio realizado en la plataforma</li>
-                    <li>Acceso no autorizado o alteración de tus transmisiones o datos</li>
-                    <li>Declaraciones o conductas de terceros en la plataforma</li>
-                    <li>Cualquier otra cuestión relacionada con la plataforma</li>
-                  </ul>
-                  <p>
-                    Esta limitación de responsabilidad se aplicará independientemente de la teoría legal en la que se
-                    base la reclamación y de si HABY ha sido advertido de la posibilidad de tales daños.
-                  </p>
+                  <section>
+                    <h3 className="text-base font-semibold mb-2">10. Modificaciones</h3>
+                    <p>
+                      Nos reservamos el derecho de modificar estos términos y condiciones en cualquier momento. Las
+                      modificaciones entrarán en vigor inmediatamente después de su publicación en la plataforma. Te
+                      recomendamos revisar periódicamente estos términos para estar informado de cualquier cambio.
+                    </p>
+                  </section>
+
+                  <div className="pt-4 border-t border-gray-200">
+                    <div className="flex items-start space-x-2 bg-blue-50 p-3 rounded-md">
+                      <Info className="h-5 w-5 text-blue-500 mt-0.5 flex-shrink-0" />
+                      <p className="text-blue-700 text-sm">
+                        Al aceptar estos términos y condiciones, confirmas que has leído, entendido y aceptado todas las
+                        disposiciones aquí contenidas y consientes el tratamiento de tus datos personales de acuerdo con
+                        lo establecido en este documento.
+                      </p>
+                    </div>
+                  </div>
                 </div>
               </ScrollArea>
-              <DialogFooter>
+
+              <DialogFooter className="mt-4">
                 <Button variant="outline" onClick={() => setOpen(false)}>
                   Cancelar
                 </Button>
-                <Button onClick={handleAccept}>Aceptar términos</Button>
+                <Button onClick={handleAccept} className="bg-purple-600 hover:bg-purple-700 text-white">
+                  Aceptar términos
+                </Button>
               </DialogFooter>
             </DialogContent>
           </Dialog>
-        </div>
-        <p className="text-xs text-muted-foreground">Debes aceptar nuestros términos y condiciones para continuar.</p>
+        </label>
+        <p className="text-xs text-gray-500">
+          Al registrarte, aceptas que recopilemos y procesemos tus datos personales para brindarte nuestros servicios
+          educativos.
+        </p>
       </div>
     </div>
   )

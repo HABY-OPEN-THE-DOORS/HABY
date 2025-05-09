@@ -5,6 +5,7 @@ import { Logo } from "@/components/logo"
 import { useState, useEffect, useCallback } from "react"
 import { SocialLinks } from "@/components/social-links"
 import { useLanguage } from "@/providers/language-provider"
+import { CopyrightNotice } from "@/components/copyright-notice"
 
 // Traducciones predeterminadas para cuando el proveedor de idioma no está disponible
 const defaultTranslations: Record<string, string> = {
@@ -76,9 +77,11 @@ export function SiteFooter() {
       <div className="container flex flex-col md:flex-row justify-between py-10">
         <div className="mb-6 md:mb-0">
           <div className="flex items-center mb-4">
-            <Logo size="md" showText={true} />
+            <Logo size="md" showText={true} showFullName={true} />
           </div>
-          <p className="text-sm text-muted-foreground max-w-xs mt-2">HABY, fundada por Heber Zadkiel Garcia Perez.</p>
+          <p className="text-sm text-muted-foreground max-w-xs mt-2">
+            HABY-CLASS, plataforma educativa fundada por Heber Zadkiel Garcia Perez.
+          </p>
 
           {/* Redes sociales */}
           <div className="mt-4">
@@ -105,8 +108,10 @@ export function SiteFooter() {
         </div>
       </div>
       <div className="container border-t py-6 text-center text-sm text-muted-foreground">
-        © {new Date().getFullYear()} HABY. {t("footer.rights")}
+        © {new Date().getFullYear()} HABY-CLASS. {t("footer.rights")}
       </div>
+      {/* Asegúrate de incluir el componente CopyrightNotice al final del footer */}
+      <CopyrightNotice />
     </footer>
   )
 }

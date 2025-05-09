@@ -6,6 +6,7 @@ import { LanguageProvider } from "@/providers/language-provider"
 import { AuthProvider } from "@/providers/auth-provider"
 import { Toaster } from "@/components/ui/toaster"
 import { Analytics } from "@/components/analytics"
+import { Suspense } from "react"
 
 const inter = Inter({
   subsets: ["latin"],
@@ -15,6 +16,13 @@ const inter = Inter({
 export const metadata = {
   title: "HABY-CLASS",
   description: "Plataforma educativa moderna para simplificar la enseñanza y mejorar el aprendizaje",
+  icons: {
+    icon: "/images/logo-haby-oficial.png",
+    apple: "/images/logo-haby-oficial.png",
+  },
+  creator: "Heber Zadkiel Garcia Perez",
+  publisher: "HABY",
+  keywords: ["educación", "plataforma educativa", "clases virtuales", "HABY-CLASS", "HABY"],
     generator: 'v0.dev'
 }
 
@@ -29,9 +37,11 @@ export default function RootLayout({
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
           <LanguageProvider defaultLanguage="es">
             <AuthProvider>
-              {children}
-              <Toaster />
-              <Analytics />
+              <Suspense>
+                {children}
+                <Toaster />
+                <Analytics />
+              </Suspense>
             </AuthProvider>
           </LanguageProvider>
         </ThemeProvider>

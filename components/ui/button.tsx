@@ -11,15 +11,15 @@ const buttonVariants = cva(
   {
     variants: {
       variant: {
-        default: "bg-primary text-primary-foreground hover:bg-primary/90",
-        destructive: "bg-destructive text-destructive-foreground hover:bg-destructive/90",
+        default: "bg-haby-accent text-white hover:bg-haby-accent-dark",
+        destructive: "bg-haby-error text-white hover:bg-haby-error/90",
         outline: "border border-input bg-background hover:bg-accent hover:text-accent-foreground",
-        secondary: "bg-secondary text-secondary-foreground hover:bg-secondary/80",
+        secondary: "bg-haby-slate text-white hover:bg-haby-slate/80",
         ghost: "hover:bg-accent hover:text-accent-foreground",
-        link: "text-primary underline-offset-4 hover:underline",
-        success: "bg-green-600 text-white hover:bg-green-700",
-        warning: "bg-amber-500 text-white hover:bg-amber-600",
-        info: "bg-blue-500 text-white hover:bg-blue-600",
+        link: "text-haby-accent underline-offset-4 hover:underline",
+        success: "bg-haby-success text-white hover:bg-haby-success/90",
+        warning: "bg-haby-warning text-white hover:bg-haby-warning/90",
+        info: "bg-haby-info text-white hover:bg-haby-info/90",
       },
       size: {
         default: "h-10 px-4 py-2",

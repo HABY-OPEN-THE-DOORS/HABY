@@ -1,109 +1,118 @@
 "use client"
 
+import { memo, useCallback } from "react"
 import Link from "next/link"
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { cn } from "@/lib/utils"
-import { Users, BookOpen, MoreHorizontal } from "lucide-react"
-import { useLanguage } from "@/providers/language-provider"
-import { motion } from "framer-motion"
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
-import { Badge } from "@/components/ui/badge"
-
-interface ClassData {
-  id: string
-  name: string
-  description: string
-  section: string
-  color: string
-  teacherId?: string
-  code?: string
-}
+import { MoreHorizontal, Users } from "lucide-react"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import { OptimizedImage } from "@/components/optimized-image"
+import { LazyLoadWrapper } from "@/components/lazy-load-wrapper"
 
 interface ClassCardProps {
-  classData: ClassData
-  studentCount?: number
-  teacherName?: string
+  id: string
+  title: string
+  description: string
+  section: string
+  studentCount: number
+  color: string
+  bannerUrl?: string
+  onEdit?: (id: string) => void
+  onDelete?: (id: string) => void
+  onDuplicate?: (id: string) => void
+  onArchive?: (id: string) => void
 }
 
-export function ClassCard({ classData, studentCount = 0, teacherName }: ClassCardProps) {
-  const { t } = useLanguage()
+function ClassCardComponent({
+  id,
+  title,
+  description,
+  section,
+  studentCount,
+  color,
+  bannerUrl,
+  onEdit,
+  onDelete,
+  onDuplicate,
+  onArchive,
+}: ClassCardProps) {
+  // Usar useCallback para evitar re-renderizados innecesarios
+  const handleEdit = useCallback(() => onEdit?.(id), [id, onEdit])
+  const handleDelete = useCallback(() => onDelete?.(id), [id, onDelete])
+  const handleDuplicate = useCallback(() => onDuplicate?.(id), [id, onDuplicate])
+  const handleArchive = useCallback(() => onArchive?.(id), [id, onArchive])
 
   return (
-    <Link href={`/dashboard/classes/${classData.id}`} className="block">
-      <motion.div whileHover={{ y: -5 }} transition={{ duration: 0.2 }}>
-        <Card className="h-full overflow-hidden transition-all hover:shadow-md relative group">
-          <div
-            className={cn(
-              "h-2 w-full",
-              classData.color === "bg-purple-600"
-                ? "bg-haby-accent"
-                : classData.color === "bg-blue-600"
-                  ? "bg-haby-accent-light"
-                  : classData.color === "bg-green-600"
-                    ? "bg-haby-success"
-                    : classData.color === "bg-red-600"
-                      ? "bg-haby-error"
-                      : classData.color === "bg-amber-500"
-                        ? "bg-haby-warning"
-                        : classData.color === "bg-teal-600"
-                          ? "bg-haby-info"
-                          : classData.color || "bg-haby-accent",
-            )}
-          />
-          <CardHeader className="pb-2">
-            <div className="flex justify-between items-start">
-              <div>
-                <CardTitle className="line-clamp-1">{classData.name}</CardTitle>
-                <CardDescription className="flex items-center text-sm">
-                  <span>{classData.section}</span>
-                  <span className="mx-2">•</span>
-                  <span className="flex items-center">
-                    <Users className="h-3 w-3 mr-1" />
-                    {studentCount} {t("class.students")}
-                  </span>
-                </CardDescription>
-              </div>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity"
-                  >
-                    <MoreHorizontal className="h-4 w-4" />
-                    <span className="sr-only">Más opciones</span>
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuItem>Ver detalles</DropdownMenuItem>
-                  <DropdownMenuItem>Copiar código de clase</DropdownMenuItem>
-                  <DropdownMenuItem>Archivar clase</DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm text-muted-foreground line-clamp-3">{classData.description}</p>
-          </CardContent>
-          <CardFooter className="flex justify-between border-t pt-4 pb-2">
-            {teacherName && (
-              <div className="flex items-center text-sm text-muted-foreground">
-                <BookOpen className="h-3 w-3 mr-1" />
-                <span>
-                  {t("class.teacher")}: {teacherName}
-                </span>
-              </div>
-            )}
-            {classData.code && (
-              <Badge variant="outline" className="ml-auto">
-                Código: {classData.code}
-              </Badge>
-            )}
-          </CardFooter>
-          <div className="absolute inset-0 bg-gradient-to-t from-background/80 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
-        </Card>
-      </motion.div>
-    </Link>
+    <LazyLoadWrapper height={280} className="h-full">
+      <Card className="overflow-hidden h-full flex flex-col transition-all duration-300 hover:shadow-medium hover:-translate-y-1">
+        <div className={`h-2 ${color}`} />
+
+        {bannerUrl && (
+          <div className="h-32 w-full overflow-hidden">
+            <OptimizedImage
+              src={bannerUrl}
+              alt={`Banner for ${title}`}
+              fill
+              className="object-cover"
+              sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+              priority={false}
+            />
+          </div>
+        )}
+
+        <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-2">
+          <div className="space-y-1">
+            <Link href={`/dashboard/classes/${id}`}>
+              <h3 className="font-semibold leading-none tracking-tight hover:underline">{title}</h3>
+            </Link>
+            <p className="text-sm text-muted-foreground">{section}</p>
+          </div>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" className="h-8 w-8 p-0">
+                <span className="sr-only">Open menu</span>
+                <MoreHorizontal className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuLabel>Actions</DropdownMenuLabel>
+              {onEdit && <DropdownMenuItem onClick={handleEdit}>Edit</DropdownMenuItem>}
+              {onDuplicate && <DropdownMenuItem onClick={handleDuplicate}>Duplicate</DropdownMenuItem>}
+              <DropdownMenuSeparator />
+              {onArchive && <DropdownMenuItem onClick={handleArchive}>Archive</DropdownMenuItem>}
+              {onDelete && (
+                <DropdownMenuItem className="text-destructive" onClick={handleDelete}>
+                  Delete
+                </DropdownMenuItem>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </CardHeader>
+        <CardContent className="flex-grow">
+          <p className="text-sm text-muted-foreground line-clamp-2">{description}</p>
+        </CardContent>
+        <CardFooter className="flex justify-between">
+          <div className="flex items-center text-sm text-muted-foreground">
+            <Users className="mr-1 h-4 w-4" />
+            {studentCount} students
+          </div>
+          <Link href={`/dashboard/classes/${id}`}>
+            <Button variant="ghost" size="sm">
+              View
+            </Button>
+          </Link>
+        </CardFooter>
+      </Card>
+    </LazyLoadWrapper>
   )
 }
+
+// Usar memo para evitar re-renderizados innecesarios
+export const ClassCard = memo(ClassCardComponent)

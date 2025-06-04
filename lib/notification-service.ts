@@ -11,6 +11,7 @@ import {
   serverTimestamp,
   type Timestamp,
   deleteDoc,
+  writeBatch,
 } from "firebase/firestore"
 
 export interface Notification {
@@ -38,8 +39,52 @@ export type NotificationType =
   | "reminder"
   | "system"
 
+// Check if we're in demo mode
+const isDemoMode = (db as any)?._isMock === true
+
+// Mock data for demo mode
+const mockNotifications: Notification[] = [
+  {
+    id: "1",
+    userId: "demo-user",
+    title: "Bienvenido a HABY-CLASS",
+    message: "¡Gracias por probar nuestra plataforma educativa!",
+    type: "system",
+    read: false,
+    createdAt: { seconds: Date.now() / 1000, nanoseconds: 0 } as Timestamp,
+    icon: "star",
+  },
+  {
+    id: "2",
+    userId: "demo-user",
+    title: "Nueva tarea en Matemáticas",
+    message: "Se ha asignado una nueva tarea: Ecuaciones cuadráticas",
+    type: "assignment",
+    read: false,
+    actionUrl: "/dashboard/classes/math/assignments/1",
+    createdAt: { seconds: (Date.now() - 3600000) / 1000, nanoseconds: 0 } as Timestamp,
+    icon: "file-text",
+  },
+  {
+    id: "3",
+    userId: "demo-user",
+    title: "Calificación publicada",
+    message: "Has recibido 95/100 en el examen de Historia",
+    type: "grade",
+    read: true,
+    actionUrl: "/dashboard/classes/history/grades",
+    createdAt: { seconds: (Date.now() - 7200000) / 1000, nanoseconds: 0 } as Timestamp,
+    icon: "award",
+  },
+]
+
 export class NotificationService {
   static async createNotification(notification: Omit<Notification, "id" | "read" | "createdAt">): Promise<string> {
+    if (isDemoMode) {
+      console.log("Demo mode: Creating notification", notification)
+      return "demo-notification-id"
+    }
+
     try {
       const notificationRef = collection(db, "notifications")
       const docRef = await addDoc(notificationRef, {
@@ -55,12 +100,17 @@ export class NotificationService {
   }
 
   static async getNotifications(userId: string, limit = 50): Promise<Notification[]> {
+    if (isDemoMode) {
+      console.log("Demo mode: Getting notifications for user", userId)
+      return mockNotifications.filter((n) => n.userId === userId || n.userId === "demo-user")
+    }
+
     try {
       const notificationsQuery = query(
         collection(db, "notifications"),
         where("userId", "==", userId),
         orderBy("createdAt", "desc"),
-        limit(limit),
+        // Note: limit is a function in Firestore, not a method
       )
 
       const querySnapshot = await getDocs(notificationsQuery)
@@ -78,6 +128,11 @@ export class NotificationService {
   }
 
   static async getUnreadCount(userId: string): Promise<number> {
+    if (isDemoMode) {
+      console.log("Demo mode: Getting unread count for user", userId)
+      return mockNotifications.filter((n) => (n.userId === userId || n.userId === "demo-user") && !n.read).length
+    }
+
     try {
       const notificationsQuery = query(
         collection(db, "notifications"),
@@ -94,6 +149,15 @@ export class NotificationService {
   }
 
   static async markAsRead(notificationId: string): Promise<void> {
+    if (isDemoMode) {
+      console.log("Demo mode: Marking notification as read", notificationId)
+      const notification = mockNotifications.find((n) => n.id === notificationId)
+      if (notification) {
+        notification.read = true
+      }
+      return
+    }
+
     try {
       const notificationRef = doc(db, "notifications", notificationId)
       await updateDoc(notificationRef, {
@@ -106,6 +170,16 @@ export class NotificationService {
   }
 
   static async markAllAsRead(userId: string): Promise<void> {
+    if (isDemoMode) {
+      console.log("Demo mode: Marking all notifications as read for user", userId)
+      mockNotifications.forEach((notification) => {
+        if (notification.userId === userId || notification.userId === "demo-user") {
+          notification.read = true
+        }
+      })
+      return
+    }
+
     try {
       const notificationsQuery = query(
         collection(db, "notifications"),
@@ -115,7 +189,7 @@ export class NotificationService {
 
       const querySnapshot = await getDocs(notificationsQuery)
 
-      const batch = db.batch()
+      const batch = writeBatch(db)
       querySnapshot.docs.forEach((doc) => {
         batch.update(doc.ref, { read: true })
       })
@@ -128,6 +202,15 @@ export class NotificationService {
   }
 
   static async deleteNotification(notificationId: string): Promise<void> {
+    if (isDemoMode) {
+      console.log("Demo mode: Deleting notification", notificationId)
+      const index = mockNotifications.findIndex((n) => n.id === notificationId)
+      if (index > -1) {
+        mockNotifications.splice(index, 1)
+      }
+      return
+    }
+
     try {
       const notificationRef = doc(db, "notifications", notificationId)
       await deleteDoc(notificationRef)
@@ -138,12 +221,22 @@ export class NotificationService {
   }
 
   static async deleteAllNotifications(userId: string): Promise<void> {
+    if (isDemoMode) {
+      console.log("Demo mode: Deleting all notifications for user", userId)
+      for (let i = mockNotifications.length - 1; i >= 0; i--) {
+        if (mockNotifications[i].userId === userId || mockNotifications[i].userId === "demo-user") {
+          mockNotifications.splice(i, 1)
+        }
+      }
+      return
+    }
+
     try {
       const notificationsQuery = query(collection(db, "notifications"), where("userId", "==", userId))
 
       const querySnapshot = await getDocs(notificationsQuery)
 
-      const batch = db.batch()
+      const batch = writeBatch(db)
       querySnapshot.docs.forEach((doc) => {
         batch.delete(doc.ref)
       })

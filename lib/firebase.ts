@@ -45,17 +45,40 @@ const createMockFirebase = () => {
     signOut: async () => {},
   }
 
-  // Mock db object
+  // Mock db object with more complete Firestore-like interface
   const mockDb = {
-    collection: () => ({
-      doc: () => ({
+    // Add a special flag to identify this as a mock
+    _isMock: true,
+    collection: (path: string) => ({
+      doc: (id?: string) => ({
+        id: id || "mock-doc-id",
         get: async () => ({
           exists: false,
           data: () => ({}),
+          id: id || "mock-doc-id",
         }),
         set: async () => {},
         update: async () => {},
+        delete: async () => {},
       }),
+      add: async () => ({
+        id: "mock-doc-id",
+      }),
+      where: () => mockDb.collection(path),
+      orderBy: () => mockDb.collection(path),
+      limit: () => mockDb.collection(path),
+      get: async () => ({
+        docs: [],
+        size: 0,
+        empty: true,
+        forEach: () => {},
+      }),
+    }),
+    batch: () => ({
+      set: () => {},
+      update: () => {},
+      delete: () => {},
+      commit: async () => {},
     }),
   }
 

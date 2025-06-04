@@ -1,9 +1,7 @@
 "use client"
 
-import React from "react"
-
 import { z } from "zod"
-import { useState } from "react"
+import { useState, useCallback, useMemo } from "react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { Button } from "@/components/ui/button"
@@ -61,15 +59,6 @@ export function CreateClassDialog({ open, onOpenChange, onCreateClass }: CreateC
   const { toast } = useToast()
   const { t } = useLanguage()
   const [activeTab, setActiveTab] = useState("basic")
-  const [selectedTemplate, setSelectedTemplate] = useState("standard")
-  const [selectedBanner, setSelectedBanner] = useState("default")
-  const [customBannerUrl, setCustomBannerUrl] = useState("")
-  const [previewClass, setPreviewClass] = useState<any>({
-    name: "Nombre de la clase",
-    description: "Descripción de la clase",
-    color: "bg-class-purple",
-    bannerUrl: "/images/class-banners/default.jpg",
-  })
 
   // Definir el esquema de validación
   const formSchema = z.object({
@@ -118,80 +107,115 @@ export function CreateClassDialog({ open, onOpenChange, onCreateClass }: CreateC
     },
   })
 
-  const { isSubmitting, watch } = form.formState
-  const watchedValues = watch()
+  const { isSubmitting } = form.formState
 
-  // Actualizar la previsualización cuando cambian los valores
-  React.useEffect(() => {
-    setPreviewClass({
-      name: watchedValues.name || "Nombre de la clase",
-      description: watchedValues.description || "Descripción de la clase",
-      color: watchedValues.color,
-      bannerUrl:
-        watchedValues.bannerType === "custom" && watchedValues.customBannerUrl
-          ? watchedValues.customBannerUrl
-          : bannerImages.find((b) => b.id === watchedValues.selectedBanner)?.url || "/images/class-banners/default.jpg",
-    })
-  }, [watchedValues])
+  // Observar valores específicos del formulario para la previsualización
+  const watchedName = form.watch("name")
+  const watchedDescription = form.watch("description")
+  const watchedSection = form.watch("section")
+  const watchedColor = form.watch("color")
+  const watchedBannerType = form.watch("bannerType")
+  const watchedCustomBannerUrl = form.watch("customBannerUrl")
+  const watchedSelectedBanner = form.watch("selectedBanner")
+  const watchedLateSubmissionPolicy = form.watch("lateSubmissionPolicy")
+
+  // Calcular la previsualización usando useMemo para evitar re-cálculos innecesarios
+  const previewClass = useMemo(() => {
+    const bannerUrl =
+      watchedBannerType === "custom" && watchedCustomBannerUrl
+        ? watchedCustomBannerUrl
+        : bannerImages.find((b) => b.id === watchedSelectedBanner)?.url || "/images/class-banners/default.jpg"
+
+    return {
+      name: watchedName || "Nombre de la clase",
+      description: watchedDescription || "Descripción de la clase",
+      section: watchedSection || "Sección",
+      color: watchedColor,
+      bannerUrl: bannerUrl,
+    }
+  }, [
+    watchedName,
+    watchedDescription,
+    watchedSection,
+    watchedColor,
+    watchedBannerType,
+    watchedCustomBannerUrl,
+    watchedSelectedBanner,
+  ])
 
   // Manejar el envío del formulario
-  const onSubmit = async (values: z.infer<typeof formSchema>) => {
-    try {
-      // Generar un código único para la clase
-      const classCode = generateClassCode()
+  const onSubmit = useCallback(
+    async (values: z.infer<typeof formSchema>) => {
+      try {
+        // Generar un código único para la clase
+        const classCode = generateClassCode()
 
-      // Determinar la URL del banner
-      const bannerUrl =
-        values.bannerType === "custom" && values.customBannerUrl
-          ? values.customBannerUrl
-          : bannerImages.find((b) => b.id === values.selectedBanner)?.url || "/images/class-banners/default.jpg"
+        // Determinar la URL del banner
+        const bannerUrl =
+          values.bannerType === "custom" && values.customBannerUrl
+            ? values.customBannerUrl
+            : bannerImages.find((b) => b.id === values.selectedBanner)?.url || "/images/class-banners/default.jpg"
 
-      // Crear la clase
-      if (onCreateClass) {
-        onCreateClass({
-          name: values.name,
-          description: values.description,
-          section: values.section,
-          room: values.room,
-          subject: values.subject,
-          color: values.color,
-          code: classCode,
-          template: values.template,
-          bannerUrl: bannerUrl,
-          settings: {
-            gradeScale: values.gradeScale,
-            allowStudentPosts: values.allowStudentPosts,
-            allowStudentComments: values.allowStudentComments,
-            showDeletedItems: values.showDeletedItems,
-            emailNotifications: values.emailNotifications,
-            gradingScheme: values.gradingScheme,
-            lateSubmissionPolicy: values.lateSubmissionPolicy,
-            penaltyPercentage: values.penaltyPercentage,
-          },
+        // Crear la clase
+        if (onCreateClass) {
+          onCreateClass({
+            name: values.name,
+            description: values.description,
+            section: values.section,
+            room: values.room,
+            subject: values.subject,
+            color: values.color,
+            code: classCode,
+            template: values.template,
+            bannerUrl: bannerUrl,
+            settings: {
+              gradeScale: values.gradeScale,
+              allowStudentPosts: values.allowStudentPosts,
+              allowStudentComments: values.allowStudentComments,
+              showDeletedItems: values.showDeletedItems,
+              emailNotifications: values.emailNotifications,
+              gradingScheme: values.gradingScheme,
+              lateSubmissionPolicy: values.lateSubmissionPolicy,
+              penaltyPercentage: values.penaltyPercentage,
+            },
+          })
+        }
+
+        // Mostrar mensaje de éxito
+        toast({
+          title: "Clase creada",
+          description: "La clase ha sido creada exitosamente.",
+        })
+
+        // Cerrar el diálogo y resetear el formulario
+        onOpenChange(false)
+        form.reset()
+      } catch (error) {
+        console.error("Error al crear clase:", error)
+        toast({
+          title: "Error",
+          description: "No se pudo crear la clase. Por favor, intenta de nuevo.",
+          variant: "destructive",
         })
       }
+    },
+    [onCreateClass, toast, onOpenChange, form],
+  )
 
-      // Mostrar mensaje de éxito
-      toast({
-        title: "Clase creada",
-        description: "La clase ha sido creada exitosamente.",
-      })
-
-      // Cerrar el diálogo y resetear el formulario
-      onOpenChange(false)
-      form.reset()
-    } catch (error) {
-      console.error("Error al crear clase:", error)
-      toast({
-        title: "Error",
-        description: "No se pudo crear la clase. Por favor, intenta de nuevo.",
-        variant: "destructive",
-      })
-    }
-  }
+  // Manejar el cierre del diálogo
+  const handleOpenChange = useCallback(
+    (open: boolean) => {
+      if (!open) {
+        form.reset()
+        setActiveTab("basic")
+      }
+      onOpenChange(open)
+    },
+    [onOpenChange, form],
+  )
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="sm:max-w-[800px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
@@ -335,7 +359,12 @@ export function CreateClassDialog({ open, onOpenChange, onCreateClass }: CreateC
                 <div className="pt-2 text-xs text-muted-foreground">* Campos obligatorios</div>
 
                 <div className="flex justify-between pt-2">
-                  <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={isSubmitting}>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => handleOpenChange(false)}
+                    disabled={isSubmitting}
+                  >
                     Cancelar
                   </Button>
                   <Button type="button" onClick={() => setActiveTab("appearance")}>
@@ -441,7 +470,7 @@ export function CreateClassDialog({ open, onOpenChange, onCreateClass }: CreateC
                   )}
                 />
 
-                {form.watch("bannerType") === "custom" && (
+                {watchedBannerType === "custom" && (
                   <FormField
                     control={form.control}
                     name="customBannerUrl"
@@ -598,7 +627,7 @@ export function CreateClassDialog({ open, onOpenChange, onCreateClass }: CreateC
                       )}
                     />
 
-                    {form.watch("lateSubmissionPolicy") === "penalty" && (
+                    {watchedLateSubmissionPolicy === "penalty" && (
                       <FormField
                         control={form.control}
                         name="penaltyPercentage"
@@ -645,7 +674,7 @@ export function CreateClassDialog({ open, onOpenChange, onCreateClass }: CreateC
                     <div className="absolute inset-0 bg-black/30"></div>
                     <div className="absolute bottom-0 left-0 p-4 text-white">
                       <h2 className="text-2xl font-bold">{previewClass.name}</h2>
-                      <p className="text-sm opacity-90">{form.watch("section") || "Sección"}</p>
+                      <p className="text-sm opacity-90">{previewClass.section}</p>
                     </div>
                   </div>
                   <div className={`p-4 border-t-4 ${previewClass.color}`}>
@@ -661,8 +690,8 @@ export function CreateClassDialog({ open, onOpenChange, onCreateClass }: CreateC
                   <Button type="button" onClick={() => setActiveTab("settings")}>
                     Anterior: Configuración
                   </Button>
-                  <Button type="submit" isLoading={isSubmitting} loadingText="Creando...">
-                    Crear clase
+                  <Button type="submit" disabled={isSubmitting}>
+                    {isSubmitting ? "Creando..." : "Crear clase"}
                   </Button>
                 </div>
               </TabsContent>

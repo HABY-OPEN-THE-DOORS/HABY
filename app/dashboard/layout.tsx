@@ -1,7 +1,6 @@
 "use client"
 
 import type React from "react"
-
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { DashboardHeader } from "@/components/dashboard/header"
@@ -18,60 +17,87 @@ export default function DashboardLayout({
   children: React.ReactNode
 }) {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
-  const { isAuthenticated, isLoading } = useAuth()
+  const [isLoading, setIsLoading] = useState(true)
+  const { isAuthenticated, isLoading: authLoading } = useAuth()
   const { language } = useLanguage()
   const router = useRouter()
 
-  // Redirigir al login si no está autenticado
+  // Manejar el estado de carga y autenticación
   useEffect(() => {
-    if (!isLoading && !isAuthenticated) {
-      router.push("/login")
+    if (!authLoading) {
+      if (!isAuthenticated) {
+        router.push("/login")
+      } else {
+        setIsLoading(false)
+      }
     }
-  }, [isAuthenticated, isLoading, router])
+  }, [isAuthenticated, authLoading, router])
 
-  // Mostrar pantalla de carga mientras se verifica la autenticación
-  if (isLoading) {
+  // Recordar preferencia de sidebar
+  useEffect(() => {
+    const savedCollapsed = localStorage.getItem("sidebar-collapsed")
+    if (savedCollapsed !== null) {
+      setSidebarCollapsed(JSON.parse(savedCollapsed))
+    }
+  }, [])
+
+  // Guardar preferencia de sidebar
+  const handleToggleCollapse = () => {
+    const newCollapsed = !sidebarCollapsed
+    setSidebarCollapsed(newCollapsed)
+    localStorage.setItem("sidebar-collapsed", JSON.stringify(newCollapsed))
+  }
+
+  // Mostrar pantalla de carga
+  if (authLoading || isLoading) {
     return <LoadingScreen />
   }
 
-  // No renderizar el contenido si no está autenticado
+  // No renderizar si no está autenticado
   if (!isAuthenticated) {
     return null
   }
 
-  // Get the title based on language
-  const title = language === "es" ? "Inicio" : "Home"
+  // Obtener título basado en idioma
+  const title = language === "es" ? "Panel de Control" : "Dashboard"
 
   const mainContentVariants = {
-    expanded: { marginLeft: 240 },
-    collapsed: { marginLeft: 70 },
+    expanded: { marginLeft: 280, width: "calc(100% - 280px)" },
+    collapsed: { marginLeft: 80, width: "calc(100% - 80px)" },
   }
 
   return (
     <NotificationProvider>
-      <div className="flex min-h-screen flex-col bg-gray-50">
+      <div className="flex min-h-screen flex-col bg-background">
+        {/* Header */}
         <DashboardHeader title={title} />
-        <div className="flex flex-1">
-          <Sidebar isCollapsed={sidebarCollapsed} onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)} />
+
+        <div className="flex flex-1 relative">
+          {/* Sidebar */}
+          <Sidebar isCollapsed={sidebarCollapsed} onToggleCollapse={handleToggleCollapse} />
+
+          {/* Contenido principal */}
           <motion.main
-            className="flex-1 pt-16"
+            className="flex-1 pt-16 min-h-[calc(100vh-4rem)]"
             initial={sidebarCollapsed ? "collapsed" : "expanded"}
             animate={sidebarCollapsed ? "collapsed" : "expanded"}
             variants={mainContentVariants}
             transition={{ duration: 0.3, ease: "easeInOut" }}
           >
-            <AnimatePresence mode="wait">
-              <motion.div
-                key={router.asPath}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -20 }}
-                transition={{ duration: 0.3 }}
-                className="min-h-[calc(100vh-4rem)]"
-              >
-                {children}
-              </motion.div>
-            </AnimatePresence>
+            <div className="container-haby py-6">
+              <AnimatePresence mode="wait">
+                <motion.div
+                  key={router.asPath}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -20 }}
+                  transition={{ duration: 0.3 }}
+                  className="w-full"
+                >
+                  {children}
+                </motion.div>
+              </AnimatePresence>
+            </div>
           </motion.main>
         </div>
       </div>

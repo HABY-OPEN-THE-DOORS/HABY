@@ -59,7 +59,7 @@ export interface Announcement {
 
 export interface Comment {
   id?: string
-  parentId: string // ID del anuncio o tarea
+  parentId: string
   parentType: "announcement" | "assignment" | "submission"
   userId: string
   content: string
@@ -161,7 +161,7 @@ export class FirestoreService {
       const batch = classIds.slice(i, i + batchSize)\
       const batchQuery = query(\
         collection(db, \"classes"),
-        where(\"id", "in", batch)\
+        where(\"__name__", "in", batch)\
       )
       \
       const batchSnapshot = await getDocs(batchQuery)\

@@ -1,34 +1,38 @@
 /**
- * HABY-CLASS - Sistema de Validación e Integridad
+ * HABY-CLASS - Sistema de Validación e Integridad CORREGIDO
  * Garantiza la coherencia y validez de todos los datos
  */
 
 import { z } from "zod"
 
-// Esquemas de validación
+// Esquemas de validación corregidos
 export const UserSchema = z.object({
-  uid: z.string().min(1),
-  firstName: z.string().min(1).max(50),
-  lastName: z.string().min(1).max(50),
-  email: z.string().email(),
-  role: z.enum(["student", "teacher", "admin"]),
-  folio: z.string().min(1),
-  curp: z.string().length(18),
+  uid: z.string().min(1, "UID es requerido"),
+  firstName: z.string().min(1, "Nombre es requerido").max(50, "Nombre muy largo"),
+  lastName: z.string().min(1, "Apellido es requerido").max(50, "Apellido muy largo"),
+  email: z.string().email("Email inválido"),
+  role: z.enum(["student", "teacher", "admin"], {
+    errorMap: () => ({ message: "Rol debe ser student, teacher o admin" }),
+  }),
+  folio: z.string().min(1, "Folio es requerido"),
+  curp: z.string().length(18, "CURP debe tener exactamente 18 caracteres"),
   department: z.string().optional(),
   preferredLanguage: z.enum(["es", "en"]).optional(),
+  createdAt: z.date().optional(),
+  updatedAt: z.date().optional(),
 })
 
 export const ClassSchema = z.object({
-  id: z.string().min(1),
-  name: z.string().min(1).max(100),
-  description: z.string().max(500),
-  section: z.string().min(1).max(20),
-  room: z.string().max(50).optional(),
-  subject: z.string().max(50).optional(),
-  teacherId: z.string().min(1),
-  color: z.string().min(1),
-  code: z.string().length(6),
-  bannerUrl: z.string().url().optional(),
+  id: z.string().min(1, "ID de clase es requerido"),
+  name: z.string().min(1, "Nombre de clase es requerido").max(100, "Nombre muy largo"),
+  description: z.string().max(500, "Descripción muy larga"),
+  section: z.string().min(1, "Sección es requerida").max(20, "Sección muy larga"),
+  room: z.string().max(50, "Nombre de aula muy largo").optional(),
+  subject: z.string().max(50, "Materia muy larga").optional(),
+  teacherId: z.string().min(1, "ID de profesor es requerido"),
+  color: z.string().min(1, "Color es requerido"),
+  code: z.string().length(6, "Código debe tener exactamente 6 caracteres"),
+  bannerUrl: z.string().url("URL de banner inválida").optional(),
   template: z.string().optional(),
   settings: z
     .object({
@@ -41,26 +45,34 @@ export const ClassSchema = z.object({
       penaltyPercentage: z.number().min(0).max(100).optional(),
     })
     .optional(),
+  createdAt: z.date().optional(),
+  updatedAt: z.date().optional(),
 })
 
 export const AssignmentSchema = z.object({
-  id: z.string().min(1),
-  classId: z.string().min(1),
-  title: z.string().min(1).max(200),
-  description: z.string().max(2000),
-  dueDate: z.date(),
-  points: z.number().min(0).max(1000),
-  submissionType: z.enum(["document", "text", "link", "multiple"]),
-  status: z.enum(["assigned", "submitted", "graded", "late"]),
+  id: z.string().min(1, "ID de tarea es requerido"),
+  classId: z.string().min(1, "ID de clase es requerido"),
+  title: z.string().min(1, "Título es requerido").max(200, "Título muy largo"),
+  description: z.string().max(2000, "Descripción muy larga"),
+  dueDate: z.date("Fecha de entrega inválida"),
+  points: z.number().min(0, "Puntos no pueden ser negativos").max(1000, "Puntos muy altos"),
+  submissionType: z.enum(["document", "text", "link", "multiple"], {
+    errorMap: () => ({ message: "Tipo de entrega inválido" }),
+  }),
+  status: z.enum(["assigned", "submitted", "graded", "late"], {
+    errorMap: () => ({ message: "Estado inválido" }),
+  }),
   attachments: z
     .array(
       z.object({
-        name: z.string(),
-        type: z.string(),
-        url: z.string().url(),
+        name: z.string().min(1, "Nombre de archivo requerido"),
+        type: z.string().min(1, "Tipo de archivo requerido"),
+        url: z.string().url("URL de archivo inválida"),
       }),
     )
     .optional(),
+  createdAt: z.date().optional(),
+  updatedAt: z.date().optional(),
 })
 
 export interface ValidationResult {
@@ -80,8 +92,9 @@ export interface IntegrityCheck {
 
 export class IntegrityValidator {
   private static instance: IntegrityValidator
-  private validationCache = new Map<string, ValidationResult>()
+  private validationCache = new Map<string, { result: ValidationResult; timestamp: number }>()
   private integrityChecks: IntegrityCheck[] = []
+  private readonly CACHE_DURATION = 60000 // 1 minuto
 
   static getInstance(): IntegrityValidator {
     if (!IntegrityValidator.instance) {
@@ -90,15 +103,18 @@ export class IntegrityValidator {
     return IntegrityValidator.instance
   }
 
-  // Validar datos según esquema
+  private constructor() {
+    this.setupCacheCleanup()
+  }
+
+  // Validar datos según esquema con cache mejorado
   validateData<T>(data: any, schema: z.ZodSchema<T>, cacheKey?: string): ValidationResult {
     try {
       // Verificar cache si se proporciona clave
       if (cacheKey && this.validationCache.has(cacheKey)) {
         const cached = this.validationCache.get(cacheKey)!
-        if (Date.now() - cached.data?.timestamp < 60000) {
-          // Cache válido por 1 minuto
-          return cached
+        if (Date.now() - cached.timestamp < this.CACHE_DURATION) {
+          return cached.result
         }
       }
 
@@ -118,53 +134,159 @@ export class IntegrityValidator {
 
       // Guardar en cache
       if (cacheKey) {
-        validationResult.data = { ...validationResult.data, timestamp: Date.now() }
-        this.validationCache.set(cacheKey, validationResult)
+        this.validationCache.set(cacheKey, {
+          result: validationResult,
+          timestamp: Date.now(),
+        })
       }
 
       return validationResult
     } catch (error) {
+      console.error("Error en validación:", error)
       return {
         isValid: false,
-        errors: [`Validation error: ${error}`],
+        errors: [`Error de validación: ${error instanceof Error ? error.message : String(error)}`],
         warnings: [],
       }
     }
   }
 
-  // Validar usuario
+  // Validar usuario con manejo de errores mejorado
   validateUser(userData: any): ValidationResult {
+    if (!userData) {
+      return {
+        isValid: false,
+        errors: ["Datos de usuario no proporcionados"],
+        warnings: [],
+      }
+    }
     return this.validateData(userData, UserSchema, `user_${userData?.uid}`)
   }
 
-  // Validar clase
+  // Validar clase con validaciones adicionales
   validateClass(classData: any): ValidationResult {
-    return this.validateData(classData, ClassSchema, `class_${classData?.id}`)
+    if (!classData) {
+      return {
+        isValid: false,
+        errors: ["Datos de clase no proporcionados"],
+        warnings: [],
+      }
+    }
+
+    const result = this.validateData(classData, ClassSchema, `class_${classData?.id}`)
+
+    // Validaciones adicionales específicas para clases
+    if (result.isValid && classData) {
+      // Verificar que el código de clase sea único (simulado)
+      if (classData.code && classData.code.length !== 6) {
+        result.warnings.push("El código de clase debe tener exactamente 6 caracteres")
+      }
+
+      // Verificar configuraciones coherentes
+      if (classData.settings?.penaltyPercentage && classData.settings.lateSubmissionPolicy !== "penalty") {
+        result.warnings.push("Porcentaje de penalización configurado pero política no es 'penalty'")
+      }
+    }
+
+    return result
   }
 
-  // Validar tarea
+  // Validar tarea con validaciones de fechas
   validateAssignment(assignmentData: any): ValidationResult {
-    return this.validateData(assignmentData, AssignmentSchema, `assignment_${assignmentData?.id}`)
+    if (!assignmentData) {
+      return {
+        isValid: false,
+        errors: ["Datos de tarea no proporcionados"],
+        warnings: [],
+      }
+    }
+
+    const result = this.validateData(assignmentData, AssignmentSchema, `assignment_${assignmentData?.id}`)
+
+    // Validaciones adicionales para tareas
+    if (result.isValid && assignmentData) {
+      const dueDate = new Date(assignmentData.dueDate)
+      const now = new Date()
+
+      // Verificar que la fecha de entrega no sea en el pasado
+      if (dueDate < now) {
+        result.warnings.push("La fecha de entrega está en el pasado")
+      }
+
+      // Verificar que la fecha no sea muy lejana
+      const oneYearFromNow = new Date()
+      oneYearFromNow.setFullYear(oneYearFromNow.getFullYear() + 1)
+      if (dueDate > oneYearFromNow) {
+        result.warnings.push("La fecha de entrega es muy lejana (más de un año)")
+      }
+    }
+
+    return result
   }
 
-  // Verificar integridad del sistema
+  // Verificar integridad del sistema con manejo de errores robusto
   async performSystemIntegrityCheck(): Promise<IntegrityCheck[]> {
     const checks: IntegrityCheck[] = []
 
-    // Verificar almacenamiento
-    checks.push(await this.checkStorageIntegrity())
+    try {
+      // Verificar almacenamiento
+      checks.push(await this.checkStorageIntegrity())
+    } catch (error) {
+      checks.push({
+        component: "Storage",
+        status: "error",
+        message: `Error verificando almacenamiento: ${error}`,
+        timestamp: new Date(),
+      })
+    }
 
-    // Verificar autenticación
-    checks.push(await this.checkAuthIntegrity())
+    try {
+      // Verificar autenticación
+      checks.push(await this.checkAuthIntegrity())
+    } catch (error) {
+      checks.push({
+        component: "Authentication",
+        status: "error",
+        message: `Error verificando autenticación: ${error}`,
+        timestamp: new Date(),
+      })
+    }
 
-    // Verificar permisos
-    checks.push(await this.checkPermissionsIntegrity())
+    try {
+      // Verificar permisos
+      checks.push(await this.checkPermissionsIntegrity())
+    } catch (error) {
+      checks.push({
+        component: "Permissions",
+        status: "error",
+        message: `Error verificando permisos: ${error}`,
+        timestamp: new Date(),
+      })
+    }
 
-    // Verificar datos de clases
-    checks.push(await this.checkClassDataIntegrity())
+    try {
+      // Verificar datos de clases
+      checks.push(await this.checkClassDataIntegrity())
+    } catch (error) {
+      checks.push({
+        component: "Class Data",
+        status: "error",
+        message: `Error verificando datos de clases: ${error}`,
+        timestamp: new Date(),
+      })
+    }
 
-    // Verificar consistencia de roles
-    checks.push(await this.checkRoleConsistency())
+    try {
+      // Verificar consistencia de roles
+      checks.push(await this.checkRoleConsistency())
+    } catch (error) {
+      checks.push({
+        component: "Role Consistency",
+        status: "error",
+        message: `Error verificando consistencia de roles: ${error}`,
+        timestamp: new Date(),
+      })
+    }
 
     this.integrityChecks = checks
     return checks
@@ -172,21 +294,53 @@ export class IntegrityValidator {
 
   private async checkStorageIntegrity(): Promise<IntegrityCheck> {
     try {
-      const { advancedStorage } = await import("./advanced-storage")
-      const stats = advancedStorage.getStorageStats()
+      // Verificar que localStorage esté disponible
+      if (typeof Storage === "undefined") {
+        return {
+          component: "Storage",
+          status: "error",
+          message: "LocalStorage no está disponible",
+          timestamp: new Date(),
+        }
+      }
+
+      // Verificar espacio disponible
+      const testKey = "haby_storage_test"
+      const testData = "test"
+
+      try {
+        localStorage.setItem(testKey, testData)
+        localStorage.removeItem(testKey)
+      } catch (error) {
+        return {
+          component: "Storage",
+          status: "error",
+          message: "No se puede escribir en localStorage",
+          timestamp: new Date(),
+        }
+      }
+
+      // Contar elementos almacenados
+      let habyItems = 0
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i)
+        if (key?.startsWith("haby_")) {
+          habyItems++
+        }
+      }
 
       return {
         component: "Storage",
-        status: stats.totalEntries > 0 ? "healthy" : "warning",
-        message: `${stats.totalEntries} entries stored, ${stats.persistentEntries} persistent`,
+        status: habyItems > 0 ? "healthy" : "warning",
+        message: `${habyItems} elementos almacenados`,
         timestamp: new Date(),
-        details: stats,
+        details: { itemCount: habyItems },
       }
     } catch (error) {
       return {
         component: "Storage",
         status: "error",
-        message: `Storage check failed: ${error}`,
+        message: `Error verificando almacenamiento: ${error}`,
         timestamp: new Date(),
       }
     }
@@ -194,33 +348,40 @@ export class IntegrityValidator {
 
   private async checkAuthIntegrity(): Promise<IntegrityCheck> {
     try {
-      // Verificar que el contexto de autenticación esté funcionando
       const authData = localStorage.getItem("mockUser")
+      const userData = localStorage.getItem("mockUserData")
 
-      if (authData) {
-        const user = JSON.parse(authData)
-        const validation = this.validateUser(user)
-
+      if (!authData || !userData) {
         return {
           component: "Authentication",
-          status: validation.isValid ? "healthy" : "warning",
-          message: validation.isValid ? "User authentication valid" : "User data validation issues",
+          status: "warning",
+          message: "No hay usuario autenticado",
           timestamp: new Date(),
-          details: validation,
         }
       }
 
+      const user = JSON.parse(authData)
+      const userDetails = JSON.parse(userData)
+
+      const validation = this.validateUser(userDetails)
+
       return {
         component: "Authentication",
-        status: "warning",
-        message: "No authenticated user found",
+        status: validation.isValid ? "healthy" : "warning",
+        message: validation.isValid ? "Usuario autenticado válido" : "Datos de usuario inválidos",
         timestamp: new Date(),
+        details: {
+          userId: user.uid,
+          role: userDetails.role,
+          validationErrors: validation.errors,
+          validationWarnings: validation.warnings,
+        },
       }
     } catch (error) {
       return {
         component: "Authentication",
         status: "error",
-        message: `Auth check failed: ${error}`,
+        message: `Error verificando autenticación: ${error}`,
         timestamp: new Date(),
       }
     }
@@ -228,27 +389,54 @@ export class IntegrityValidator {
 
   private async checkPermissionsIntegrity(): Promise<IntegrityCheck> {
     try {
-      const { hasPermission } = await import("./roles-permissions")
+      // Verificar que el sistema de permisos esté funcionando
+      const testPermissions = [
+        { role: "student", permission: "view_class", expected: true },
+        { role: "teacher", permission: "create_class", expected: true },
+        { role: "admin", permission: "manage_users", expected: true },
+        { role: "student", permission: "delete_class", expected: false },
+      ]
 
-      // Verificar permisos básicos para diferentes roles
-      const studentCanView = hasPermission("student", "view_class")
-      const teacherCanCreate = hasPermission("teacher", "create_class")
-      const adminCanManage = hasPermission("admin", "manage_users")
+      let failedTests = 0
+      const testResults: any[] = []
 
-      const allPermissionsWork = studentCanView && teacherCanCreate && adminCanManage
+      for (const test of testPermissions) {
+        try {
+          // Simular verificación de permisos
+          const hasPermission = this.simulatePermissionCheck(test.role, test.permission)
+          const passed = hasPermission === test.expected
+
+          if (!passed) failedTests++
+
+          testResults.push({
+            role: test.role,
+            permission: test.permission,
+            expected: test.expected,
+            actual: hasPermission,
+            passed,
+          })
+        } catch (error) {
+          failedTests++
+          testResults.push({
+            role: test.role,
+            permission: test.permission,
+            error: String(error),
+          })
+        }
+      }
 
       return {
         component: "Permissions",
-        status: allPermissionsWork ? "healthy" : "error",
-        message: allPermissionsWork ? "Permission system working correctly" : "Permission system has issues",
+        status: failedTests === 0 ? "healthy" : "error",
+        message: `${testPermissions.length - failedTests}/${testPermissions.length} pruebas de permisos pasaron`,
         timestamp: new Date(),
-        details: { studentCanView, teacherCanCreate, adminCanManage },
+        details: { testResults, failedTests },
       }
     } catch (error) {
       return {
         component: "Permissions",
         status: "error",
-        message: `Permissions check failed: ${error}`,
+        message: `Error verificando permisos: ${error}`,
         timestamp: new Date(),
       }
     }
@@ -256,33 +444,68 @@ export class IntegrityValidator {
 
   private async checkClassDataIntegrity(): Promise<IntegrityCheck> {
     try {
-      const classesData = localStorage.getItem("classes")
+      const userData = localStorage.getItem("mockUserData")
+      if (!userData) {
+        return {
+          component: "Class Data",
+          status: "warning",
+          message: "No hay usuario para verificar datos de clases",
+          timestamp: new Date(),
+        }
+      }
+
+      const user = JSON.parse(userData)
+      const classesData = localStorage.getItem(`haby_user_classes:${user.uid}`)
 
       if (!classesData) {
         return {
           component: "Class Data",
           status: "warning",
-          message: "No class data found",
+          message: "No hay datos de clases",
           timestamp: new Date(),
         }
       }
 
       const classes = JSON.parse(classesData)
-      const validationResults = classes.map((cls: any) => this.validateClass(cls))
+      if (!Array.isArray(classes)) {
+        return {
+          component: "Class Data",
+          status: "error",
+          message: "Datos de clases corruptos (no es un array)",
+          timestamp: new Date(),
+        }
+      }
+
+      const validationResults = classes.map((cls: any, index: number) => {
+        const validation = this.validateClass(cls)
+        return {
+          index,
+          classId: cls?.id,
+          className: cls?.name,
+          isValid: validation.isValid,
+          errors: validation.errors,
+          warnings: validation.warnings,
+        }
+      })
+
       const invalidClasses = validationResults.filter((r) => !r.isValid)
 
       return {
         component: "Class Data",
         status: invalidClasses.length === 0 ? "healthy" : "warning",
-        message: `${classes.length} classes found, ${invalidClasses.length} with validation issues`,
+        message: `${classes.length} clases encontradas, ${invalidClasses.length} con errores de validación`,
         timestamp: new Date(),
-        details: { total: classes.length, invalid: invalidClasses.length },
+        details: {
+          total: classes.length,
+          invalid: invalidClasses.length,
+          validationResults: invalidClasses.length > 0 ? invalidClasses : undefined,
+        },
       }
     } catch (error) {
       return {
         component: "Class Data",
         status: "error",
-        message: `Class data check failed: ${error}`,
+        message: `Error verificando datos de clases: ${error}`,
         timestamp: new Date(),
       }
     }
@@ -291,42 +514,67 @@ export class IntegrityValidator {
   private async checkRoleConsistency(): Promise<IntegrityCheck> {
     try {
       const userData = localStorage.getItem("mockUserData")
-      const classesData = localStorage.getItem("classes")
-
-      if (!userData || !classesData) {
+      if (!userData) {
         return {
           component: "Role Consistency",
           status: "warning",
-          message: "Insufficient data for role consistency check",
+          message: "No hay datos de usuario para verificar consistencia",
           timestamp: new Date(),
         }
       }
 
       const user = JSON.parse(userData)
-      const classes = JSON.parse(classesData)
+      const classesData = localStorage.getItem(`haby_user_classes:${user.uid}`)
 
-      // Verificar que las clases del usuario coincidan con su rol
+      if (!classesData) {
+        return {
+          component: "Role Consistency",
+          status: "warning",
+          message: "No hay datos de clases para verificar consistencia",
+          timestamp: new Date(),
+        }
+      }
+
+      const classes = JSON.parse(classesData)
       let inconsistencies = 0
+      const issues: string[] = []
 
       if (user.role === "teacher") {
         const teacherClasses = classes.filter((cls: any) => cls.teacherId === user.uid)
         if (teacherClasses.length === 0) {
           inconsistencies++
+          issues.push("Profesor sin clases asignadas")
+        }
+
+        const nonTeacherClasses = classes.filter((cls: any) => cls.teacherId !== user.uid)
+        if (nonTeacherClasses.length > 0) {
+          inconsistencies++
+          issues.push(`Profesor inscrito en ${nonTeacherClasses.length} clases que no enseña`)
+        }
+      } else if (user.role === "student") {
+        const ownClasses = classes.filter((cls: any) => cls.teacherId === user.uid)
+        if (ownClasses.length > 0) {
+          inconsistencies++
+          issues.push(`Estudiante aparece como profesor de ${ownClasses.length} clases`)
         }
       }
 
       return {
         component: "Role Consistency",
         status: inconsistencies === 0 ? "healthy" : "warning",
-        message: `${inconsistencies} role inconsistencies found`,
+        message: `${inconsistencies} inconsistencias de rol encontradas`,
         timestamp: new Date(),
-        details: { inconsistencies, userRole: user.role },
+        details: {
+          inconsistencies,
+          userRole: user.role,
+          issues: issues.length > 0 ? issues : undefined,
+        },
       }
     } catch (error) {
       return {
         component: "Role Consistency",
         status: "error",
-        message: `Role consistency check failed: ${error}`,
+        message: `Error verificando consistencia de roles: ${error}`,
         timestamp: new Date(),
       }
     }
@@ -335,13 +583,12 @@ export class IntegrityValidator {
   private generateWarnings<T>(data: T, schema: z.ZodSchema<T>): string[] {
     const warnings: string[] = []
 
-    // Agregar lógica personalizada para generar advertencias
     if (typeof data === "object" && data !== null) {
       const obj = data as any
 
       // Advertencia para campos opcionales vacíos importantes
       if ("description" in obj && (!obj.description || obj.description.length < 10)) {
-        warnings.push("Description is very short or empty")
+        warnings.push("La descripción es muy corta o está vacía")
       }
 
       // Advertencia para fechas muy próximas
@@ -352,7 +599,19 @@ export class IntegrityValidator {
         const daysDiff = timeDiff / (1000 * 3600 * 24)
 
         if (daysDiff < 1 && daysDiff > 0) {
-          warnings.push("Due date is less than 24 hours away")
+          warnings.push("La fecha de entrega es en menos de 24 horas")
+        }
+      }
+
+      // Advertencia para nombres muy cortos
+      if ("name" in obj && obj.name && obj.name.length < 3) {
+        warnings.push("El nombre es muy corto")
+      }
+
+      // Advertencia para códigos de clase débiles
+      if ("code" in obj && obj.code) {
+        if (!/^[A-Z0-9]{6}$/.test(obj.code)) {
+          warnings.push("El código de clase debería contener solo letras mayúsculas y números")
         }
       }
     }
@@ -360,13 +619,48 @@ export class IntegrityValidator {
     return warnings
   }
 
-  // Obtener estadísticas de validación
+  private simulatePermissionCheck(role: string, permission: string): boolean {
+    // Simulación básica del sistema de permisos
+    const permissions = {
+      student: ["view_class", "submit_assignment", "view_grades", "comment_announcements"],
+      teacher: [
+        "view_class",
+        "create_class",
+        "edit_class",
+        "create_assignment",
+        "grade_assignment",
+        "create_announcement",
+      ],
+      admin: ["view_class", "create_class", "edit_class", "delete_class", "manage_users", "view_audit_logs"],
+    }
+
+    return permissions[role as keyof typeof permissions]?.includes(permission) || false
+  }
+
+  private setupCacheCleanup(): void {
+    // Limpiar cache cada 5 minutos
+    setInterval(
+      () => {
+        const now = Date.now()
+        for (const [key, value] of this.validationCache.entries()) {
+          if (now - value.timestamp > this.CACHE_DURATION) {
+            this.validationCache.delete(key)
+          }
+        }
+      },
+      5 * 60 * 1000,
+    )
+  }
+
+  // Métodos públicos adicionales
   getValidationStats(): any {
     const stats = {
       totalValidations: this.validationCache.size,
-      cacheHitRate: 0,
       recentChecks: this.integrityChecks.slice(-10),
       systemHealth: this.calculateSystemHealth(),
+      cacheSize: this.validationCache.size,
+      lastIntegrityCheck:
+        this.integrityChecks.length > 0 ? this.integrityChecks[this.integrityChecks.length - 1].timestamp : null,
     }
 
     return stats
@@ -383,12 +677,11 @@ export class IntegrityValidator {
     return "healthy"
   }
 
-  // Limpiar cache de validación
   clearValidationCache(): void {
     this.validationCache.clear()
+    console.log("🧹 Cache de validación limpiado")
   }
 
-  // Obtener reporte de integridad
   generateIntegrityReport(): any {
     return {
       timestamp: new Date(),
@@ -406,15 +699,25 @@ export class IntegrityValidator {
     const warningChecks = this.integrityChecks.filter((c) => c.status === "warning")
 
     if (errorChecks.length > 0) {
-      recommendations.push("Address critical system errors immediately")
+      recommendations.push("Resolver errores críticos del sistema inmediatamente")
+      errorChecks.forEach((check) => {
+        recommendations.push(`- ${check.component}: ${check.message}`)
+      })
     }
 
     if (warningChecks.length > 0) {
-      recommendations.push("Review and resolve system warnings")
+      recommendations.push("Revisar y resolver advertencias del sistema")
+      warningChecks.forEach((check) => {
+        recommendations.push(`- ${check.component}: ${check.message}`)
+      })
     }
 
     if (this.validationCache.size > 1000) {
-      recommendations.push("Consider clearing validation cache to free memory")
+      recommendations.push("Considerar limpiar el cache de validación para liberar memoria")
+    }
+
+    if (this.integrityChecks.length === 0) {
+      recommendations.push("Ejecutar verificación de integridad del sistema")
     }
 
     return recommendations

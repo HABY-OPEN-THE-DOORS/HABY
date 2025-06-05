@@ -1,14 +1,10 @@
 import type React from "react"
 import { Inter } from "next/font/google"
+import "./globals.css"
 import { ThemeProvider } from "@/providers/theme-provider"
 import { AuthProvider } from "@/providers/auth-provider"
 import { LanguageProvider } from "@/providers/language-provider"
 import { Toaster } from "@/components/ui/toaster"
-import { Analytics } from "@/components/analytics"
-import { ServiceWorkerRegister } from "@/components/service-worker-register"
-import { PerformanceMonitor } from "@/components/performance-monitor"
-import "./globals.css"
-import { Suspense } from "react"
 
 const inter = Inter({
   subsets: ["latin"],
@@ -86,28 +82,12 @@ export default function RootLayout({
 }) {
   return (
     <html lang="es" suppressHydrationWarning className={inter.variable}>
-      <head>
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        <link rel="dns-prefetch" href="https://fonts.googleapis.com" />
-        <link rel="dns-prefetch" href="https://fonts.gstatic.com" />
-        <meta name="theme-color" content="#6366F1" />
-        <meta name="color-scheme" content="light dark" />
-      </head>
       <body className={`${inter.className} font-sans antialiased`}>
         <ThemeProvider attribute="class" defaultTheme="light" enableSystem disableTransitionOnChange={false}>
           <LanguageProvider>
             <AuthProvider>
-              <Suspense fallback={null}>
-                <div className="relative min-h-screen bg-background">
-                  <div className="absolute inset-0 bg-gradient-premium-1 opacity-5 pointer-events-none" />
-                  {children}
-                </div>
-                <Toaster />
-                <Analytics />
-                <ServiceWorkerRegister />
-                <PerformanceMonitor />
-              </Suspense>
+              <div className="relative min-h-screen bg-background">{children}</div>
+              <Toaster />
             </AuthProvider>
           </LanguageProvider>
         </ThemeProvider>

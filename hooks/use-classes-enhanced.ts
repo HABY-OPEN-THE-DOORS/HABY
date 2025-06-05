@@ -1,5 +1,5 @@
 /**
- * HABY-CLASS - Hook Mejorado para Gestión de Clases
+ * HABY-CLASS - Hook Mejorado para Gestión de Clases CORREGIDO
  * Incluye auditoría, validación y persistencia avanzada
  */
 
@@ -12,7 +12,32 @@ import { globalStateManager } from "@/lib/global-state-manager"
 import { integrityValidator } from "@/lib/integrity-validator"
 import { auditSystem } from "@/lib/audit-system"
 import { usePermissions } from "@/hooks/use-permissions"
-import type { Class } from "@/hooks/use-classes"
+
+// Interfaces corregidas
+export interface Class {
+  id: string
+  name: string
+  description: string
+  section: string
+  room?: string
+  subject?: string
+  teacherId: string
+  color: string
+  code: string
+  bannerUrl?: string
+  template?: string
+  settings?: {
+    gradeScale?: "100" | "10" | "5" | "letter"
+    allowStudentPosts?: boolean
+    allowStudentComments?: boolean
+    emailNotifications?: boolean
+    gradingScheme?: "points" | "percentage" | "custom"
+    lateSubmissionPolicy?: "accept" | "reject" | "penalty"
+    penaltyPercentage?: number
+  }
+  createdAt?: Date
+  updatedAt?: Date
+}
 
 export interface EnhancedClass extends Class {
   metadata?: {
@@ -35,13 +60,20 @@ export function useClassesEnhanced() {
   const [classes, setClasses] = useState<EnhancedClass[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [operationInProgress, setOperationInProgress] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
+
   const { userData } = useAuth()
   const { toast } = useToast()
   const { can } = usePermissions()
 
   // Cargar clases al iniciar
   useEffect(() => {
-    loadClasses()
+    if (userData) {
+      loadClasses()
+    } else {
+      setIsLoading(false)
+      setClasses([])
+    }
   }, [userData])
 
   // Suscribirse a cambios en tiempo real
@@ -49,10 +81,12 @@ export function useClassesEnhanced() {
     if (!userData) return
 
     const subscriptionId = globalStateManager.subscribe(
-      /^class:/,
+      new RegExp(`^user_classes:${userData.uid}$`),
       (change) => {
         console.log("Class change detected:", change)
-        loadClasses() // Recargar clases cuando hay cambios
+        if (change.newValue && Array.isArray(change.newValue)) {
+          setClasses(change.newValue)
+        }
       },
       { immediate: false },
     )
@@ -63,20 +97,31 @@ export function useClassesEnhanced() {
   }, [userData])
 
   const loadClasses = useCallback(async () => {
-    if (!userData) return
+    if (!userData) {
+      setError("Usuario no autenticado")
+      setIsLoading(false)
+      return
+    }
 
     setIsLoading(true)
+    setError(null)
+
     try {
       await auditSystem.logUserAction(userData.uid, userData.role, "load_classes", {
         timestamp: new Date(),
       })
 
       // Cargar clases desde el estado global
-      const classesData = await globalStateManager.getState<EnhancedClass[]>("user_classes:" + userData.uid)
+      const classesData = await globalStateManager.getState<EnhancedClass[]>(`user_classes:${userData.uid}`)
 
-      if (classesData) {
+      if (classesData && Array.isArray(classesData)) {
         // Validar integridad de cada clase
         const validatedClasses = classesData.filter((cls) => {
+          if (!cls || typeof cls !== "object") {
+            console.warn(`Invalid class data:`, cls)
+            return false
+          }
+
           const validation = integrityValidator.validateClass(cls)
           if (!validation.isValid) {
             console.warn(`Invalid class data for ${cls.id}:`, validation.errors)
@@ -91,8 +136,11 @@ export function useClassesEnhanced() {
         await loadDemoData()
       }
     } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error)
       console.error("Error loading classes:", error)
-      await auditSystem.logError(userData.uid, userData.role, "load_classes", "class", "all", String(error))
+      setError(errorMessage)
+
+      await auditSystem.logError(userData.uid, userData.role, "load_classes", "class", "all", errorMessage)
 
       toast({
         title: "Error al cargar clases",
@@ -113,12 +161,24 @@ export function useClassesEnhanced() {
         }
       }
 
+      // Validar datos de entrada
+      if (!classData.name || !classData.section || !classData.code) {
+        return {
+          success: false,
+          error: "Datos de clase incompletos",
+          validationErrors: ["Nombre, sección y código son requeridos"],
+        }
+      }
+
       setOperationInProgress("creating")
 
       try {
+        // Generar ID único
+        const classId = `class-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+
         // Crear clase con metadatos
         const newClass: EnhancedClass = {
-          id: `class-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+          id: classId,
           teacherId: userData.uid,
           ...classData,
           metadata: {
@@ -138,7 +198,7 @@ export function useClassesEnhanced() {
             userData.role,
             "create_class",
             "class",
-            newClass.id,
+            classId,
             "Validation failed",
             {
               errors: validation.errors,
@@ -149,6 +209,16 @@ export function useClassesEnhanced() {
             success: false,
             error: "Datos de clase inválidos",
             validationErrors: validation.errors,
+          }
+        }
+
+        // Verificar que el código de clase sea único
+        const existingClass = classes.find((c) => c.code === newClass.code)
+        if (existingClass) {
+          return {
+            success: false,
+            error: "El código de clase ya existe",
+            validationErrors: ["Código de clase duplicado"],
           }
         }
 
@@ -169,6 +239,7 @@ export function useClassesEnhanced() {
         await auditSystem.logClassAction(userData.uid, userData.role, "create_class", newClass.id, {
           className: newClass.name,
           section: newClass.section,
+          code: newClass.code,
           timestamp: new Date(),
         })
 
@@ -182,8 +253,9 @@ export function useClassesEnhanced() {
           data: newClass,
         }
       } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error)
         console.error("Error creating class:", error)
-        await auditSystem.logError(userData.uid, userData.role, "create_class", "class", "new", String(error))
+        await auditSystem.logError(userData.uid, userData.role, "create_class", "class", "new", errorMessage)
 
         return {
           success: false,
@@ -218,6 +290,18 @@ export function useClassesEnhanced() {
         return {
           success: false,
           error: "No tienes permisos para editar esta clase",
+        }
+      }
+
+      // Validar que no se esté cambiando el código a uno existente
+      if (updates.code && updates.code !== existingClass.code) {
+        const codeExists = classes.some((c) => c.id !== classId && c.code === updates.code)
+        if (codeExists) {
+          return {
+            success: false,
+            error: "El código de clase ya existe",
+            validationErrors: ["Código de clase duplicado"],
+          }
         }
       }
 
@@ -290,8 +374,9 @@ export function useClassesEnhanced() {
           data: updatedClass,
         }
       } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error)
         console.error("Error updating class:", error)
-        await auditSystem.logError(userData.uid, userData.role, "update_class", "class", classId, String(error))
+        await auditSystem.logError(userData.uid, userData.role, "update_class", "class", classId, errorMessage)
 
         return {
           success: false,
@@ -361,8 +446,9 @@ export function useClassesEnhanced() {
           data: existingClass,
         }
       } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error)
         console.error("Error deleting class:", error)
-        await auditSystem.logError(userData.uid, userData.role, "delete_class", "class", classId, String(error))
+        await auditSystem.logError(userData.uid, userData.role, "delete_class", "class", classId, errorMessage)
 
         return {
           success: false,
@@ -384,12 +470,20 @@ export function useClassesEnhanced() {
         }
       }
 
+      if (!classCode || classCode.length !== 6) {
+        return {
+          success: false,
+          error: "Código de clase inválido",
+          validationErrors: ["El código debe tener exactamente 6 caracteres"],
+        }
+      }
+
       setOperationInProgress("joining")
 
       try {
-        // Buscar clase por código (simulado)
-        const availableClasses = (await globalStateManager.getState<EnhancedClass[]>("available_classes")) || []
-        const classToJoin = availableClasses.find((c) => c.code === classCode)
+        // Buscar clase por código (simulado con datos de demostración)
+        const availableClasses = await getAvailableClasses()
+        const classToJoin = availableClasses.find((c) => c.code === classCode.toUpperCase())
 
         if (!classToJoin) {
           await auditSystem.logError(userData.uid, userData.role, "join_class", "class", classCode, "Class not found")
@@ -406,6 +500,14 @@ export function useClassesEnhanced() {
           return {
             success: false,
             error: "Ya estás inscrito en esta clase",
+          }
+        }
+
+        // Verificar que no sea su propia clase (para profesores)
+        if (classToJoin.teacherId === userData.uid) {
+          return {
+            success: false,
+            error: "No puedes unirte a tu propia clase",
           }
         }
 
@@ -438,8 +540,9 @@ export function useClassesEnhanced() {
           data: classToJoin,
         }
       } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error)
         console.error("Error joining class:", error)
-        await auditSystem.logError(userData.uid, userData.role, "join_class", "class", classCode, String(error))
+        await auditSystem.logError(userData.uid, userData.role, "join_class", "class", classCode, errorMessage)
 
         return {
           success: false,
@@ -455,59 +558,104 @@ export function useClassesEnhanced() {
   const loadDemoData = useCallback(async () => {
     if (!userData) return
 
-    const demoClasses: EnhancedClass[] = [
+    try {
+      const demoClasses: EnhancedClass[] = [
+        {
+          id: "demo-class-1",
+          name: "Matemáticas 101",
+          description: "Introducción a conceptos matemáticos básicos y técnicas de resolución de problemas.",
+          section: "Sección A",
+          room: "Aula 201",
+          subject: "Matemáticas",
+          teacherId: userData.uid,
+          color: "bg-blue-500",
+          code: "MATH01",
+          bannerUrl: "/images/class-banners/math.jpg",
+          template: "standard",
+          settings: {
+            gradeScale: "100",
+            allowStudentPosts: true,
+            allowStudentComments: true,
+            emailNotifications: true,
+            gradingScheme: "points",
+            lateSubmissionPolicy: "accept",
+          },
+          metadata: {
+            createdAt: new Date(),
+            updatedAt: new Date(),
+            version: 1,
+            lastModifiedBy: userData.uid,
+            checksum: "demo-checksum-1",
+          },
+        },
+      ]
+
+      await globalStateManager.setState(`user_classes:${userData.uid}`, demoClasses, {
+        persistent: true,
+        userId: userData.uid,
+        role: userData.role,
+        metadata: { action: "load_demo_data" },
+      })
+
+      setClasses(demoClasses)
+
+      await auditSystem.logUserAction(userData.uid, userData.role, "load_demo_data", {
+        classCount: demoClasses.length,
+      })
+    } catch (error) {
+      console.error("Error loading demo data:", error)
+    }
+  }, [userData])
+
+  // Función auxiliar para obtener clases disponibles
+  const getAvailableClasses = useCallback(async (): Promise<EnhancedClass[]> => {
+    // En una implementación real, esto consultaría la base de datos
+    // Por ahora, devolvemos clases de demostración
+    return [
       {
-        id: "demo-class-1",
-        name: "Matemáticas 101",
-        description: "Introducción a conceptos matemáticos básicos y técnicas de resolución de problemas.",
-        section: "Sección A",
-        room: "Aula 201",
-        subject: "Matemáticas",
-        teacherId: userData.uid,
-        color: "bg-blue-500",
-        code: "MATH101",
-        bannerUrl: "/images/class-banners/math.jpg",
-        template: "standard",
+        id: "available-class-1",
+        name: "Física Avanzada",
+        description: "Curso avanzado de física para estudiantes de nivel superior.",
+        section: "Sección B",
+        room: "Laboratorio 1",
+        subject: "Física",
+        teacherId: "teacher-demo-1",
+        color: "bg-green-500",
+        code: "PHYS01",
+        template: "science",
         settings: {
           gradeScale: "100",
-          allowStudentPosts: true,
+          allowStudentPosts: false,
           allowStudentComments: true,
           emailNotifications: true,
           gradingScheme: "points",
-          lateSubmissionPolicy: "accept",
+          lateSubmissionPolicy: "penalty",
+          penaltyPercentage: 10,
         },
         metadata: {
           createdAt: new Date(),
           updatedAt: new Date(),
           version: 1,
-          lastModifiedBy: userData.uid,
-          checksum: "demo-checksum-1",
+          lastModifiedBy: "teacher-demo-1",
+          checksum: "available-checksum-1",
         },
       },
     ]
-
-    await globalStateManager.setState(`user_classes:${userData.uid}`, demoClasses, {
-      persistent: true,
-      userId: userData.uid,
-      role: userData.role,
-      metadata: { action: "load_demo_data" },
-    })
-
-    setClasses(demoClasses)
-
-    await auditSystem.logUserAction(userData.uid, userData.role, "load_demo_data", {
-      classCount: demoClasses.length,
-    })
-  }, [userData])
+  }, [])
 
   // Función auxiliar para generar checksum
   const generateChecksum = async (data: any): Promise<string> => {
-    const str = JSON.stringify(data)
-    const encoder = new TextEncoder()
-    const dataBuffer = encoder.encode(str)
-    const hashBuffer = await crypto.subtle.digest("SHA-256", dataBuffer)
-    const hashArray = Array.from(new Uint8Array(hashBuffer))
-    return hashArray.map((b) => b.toString(16).padStart(2, "0")).join("")
+    try {
+      const str = JSON.stringify(data)
+      const encoder = new TextEncoder()
+      const dataBuffer = encoder.encode(str)
+      const hashBuffer = await crypto.subtle.digest("SHA-256", dataBuffer)
+      const hashArray = Array.from(new Uint8Array(hashBuffer))
+      return hashArray.map((b) => b.toString(16).padStart(2, "0")).join("")
+    } catch (error) {
+      console.error("Error generating checksum:", error)
+      return `checksum-${Date.now()}`
+    }
   }
 
   return {
@@ -515,6 +663,7 @@ export function useClassesEnhanced() {
     classes,
     isLoading,
     operationInProgress,
+    error,
 
     // Acciones
     createClass,
@@ -524,8 +673,11 @@ export function useClassesEnhanced() {
     loadClasses,
 
     // Utilidades
-    getClassById: (id: string) => classes.find((c) => c.id === id),
-    getClassesByTeacher: (teacherId: string) => classes.filter((c) => c.teacherId === teacherId),
+    getClassById: useCallback((id: string) => classes.find((c) => c.id === id), [classes]),
+    getClassesByTeacher: useCallback(
+      (teacherId: string) => classes.filter((c) => c.teacherId === teacherId),
+      [classes],
+    ),
     hasUnsavedChanges: false, // Se podría implementar
 
     // Estadísticas

@@ -12,6 +12,7 @@ import {
   type Timestamp,
   deleteDoc,
   writeBatch,
+  limit,
 } from "firebase/firestore"
 
 export interface Notification {
@@ -22,7 +23,7 @@ export interface Notification {
   type: NotificationType
   read: boolean
   actionUrl?: string
-  createdAt?: Timestamp
+  createdAt?: Timestamp | Date | any
   sourceId?: string
   sourceType?: string
   icon?: string
@@ -40,7 +41,7 @@ export type NotificationType =
   | "system"
 
 // Check if we're in demo mode
-const isDemoMode = (db as any)?._isMock === true
+const isDemoMode = process.env.NEXT_PUBLIC_DEMO_MODE === "true" || (db as any)?._isMock === true
 
 // Mock data for demo mode
 const mockNotifications: Notification[] = [
@@ -48,33 +49,55 @@ const mockNotifications: Notification[] = [
     id: "1",
     userId: "demo-user",
     title: "Bienvenido a HABY-CLASS",
-    message: "¡Gracias por probar nuestra plataforma educativa!",
+    message: "¡Gracias por probar nuestra plataforma educativa! Explora todas las funcionalidades disponibles.",
     type: "system",
     read: false,
-    createdAt: { seconds: Date.now() / 1000, nanoseconds: 0 } as Timestamp,
+    createdAt: new Date(),
     icon: "star",
   },
   {
     id: "2",
     userId: "demo-user",
     title: "Nueva tarea en Matemáticas",
-    message: "Se ha asignado una nueva tarea: Ecuaciones cuadráticas",
+    message: "Se ha asignado una nueva tarea: Ecuaciones cuadráticas. Fecha límite: 15 de enero.",
     type: "assignment",
     read: false,
     actionUrl: "/dashboard/classes/math/assignments/1",
-    createdAt: { seconds: (Date.now() - 3600000) / 1000, nanoseconds: 0 } as Timestamp,
+    createdAt: new Date(Date.now() - 3600000), // 1 hour ago
     icon: "file-text",
   },
   {
     id: "3",
     userId: "demo-user",
     title: "Calificación publicada",
-    message: "Has recibido 95/100 en el examen de Historia",
+    message: "Has recibido 95/100 en el examen de Historia del siglo XX. ¡Excelente trabajo!",
     type: "grade",
     read: true,
     actionUrl: "/dashboard/classes/history/grades",
-    createdAt: { seconds: (Date.now() - 7200000) / 1000, nanoseconds: 0 } as Timestamp,
+    createdAt: new Date(Date.now() - 7200000), // 2 hours ago
     icon: "award",
+  },
+  {
+    id: "4",
+    userId: "demo-user",
+    title: "Nuevo anuncio en Física",
+    message: "El profesor ha publicado información importante sobre el laboratorio de la próxima semana.",
+    type: "announcement",
+    read: false,
+    actionUrl: "/dashboard/classes/physics/stream",
+    createdAt: new Date(Date.now() - 10800000), // 3 hours ago
+    icon: "megaphone",
+  },
+  {
+    id: "5",
+    userId: "demo-user",
+    title: "Recordatorio de entrega",
+    message: "La tarea de Literatura vence mañana a las 23:59. No olvides subirla a tiempo.",
+    type: "reminder",
+    read: false,
+    actionUrl: "/dashboard/classes/literature/assignments/5",
+    createdAt: new Date(Date.now() - 14400000), // 4 hours ago
+    icon: "bell",
   },
 ]
 
@@ -82,7 +105,14 @@ export class NotificationService {
   static async createNotification(notification: Omit<Notification, "id" | "read" | "createdAt">): Promise<string> {
     if (isDemoMode) {
       console.log("Demo mode: Creating notification", notification)
-      return "demo-notification-id"
+      const newNotification: Notification = {
+        ...notification,
+        id: `demo-${Date.now()}`,
+        read: false,
+        createdAt: new Date(),
+      }
+      mockNotifications.unshift(newNotification)
+      return newNotification.id!
     }
 
     try {
@@ -99,10 +129,17 @@ export class NotificationService {
     }
   }
 
-  static async getNotifications(userId: string, limit = 50): Promise<Notification[]> {
+  static async getNotifications(userId: string, limitCount = 50): Promise<Notification[]> {
     if (isDemoMode) {
       console.log("Demo mode: Getting notifications for user", userId)
-      return mockNotifications.filter((n) => n.userId === userId || n.userId === "demo-user")
+      return mockNotifications
+        .filter((n) => n.userId === userId || n.userId === "demo-user")
+        .sort((a, b) => {
+          const dateA = a.createdAt instanceof Date ? a.createdAt : new Date(a.createdAt || 0)
+          const dateB = b.createdAt instanceof Date ? b.createdAt : new Date(b.createdAt || 0)
+          return dateB.getTime() - dateA.getTime()
+        })
+        .slice(0, limitCount)
     }
 
     try {
@@ -110,7 +147,7 @@ export class NotificationService {
         collection(db, "notifications"),
         where("userId", "==", userId),
         orderBy("createdAt", "desc"),
-        // Note: limit is a function in Firestore, not a method
+        limit(limitCount),
       )
 
       const querySnapshot = await getDocs(notificationsQuery)

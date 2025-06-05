@@ -74,29 +74,77 @@ export function NotificationItem({ notification }: NotificationItemProps) {
     }
   }
 
+  // Helper function to safely convert timestamp to Date
+  const getDateFromTimestamp = (timestamp: any): Date => {
+    if (!timestamp) {
+      return new Date()
+    }
+
+    // If it's already a Date object
+    if (timestamp instanceof Date) {
+      return timestamp
+    }
+
+    // If it's a Firestore Timestamp with toDate method
+    if (timestamp.toDate && typeof timestamp.toDate === "function") {
+      return timestamp.toDate()
+    }
+
+    // If it's a mock timestamp with seconds property
+    if (timestamp.seconds) {
+      return new Date(timestamp.seconds * 1000)
+    }
+
+    // If it's a number (milliseconds)
+    if (typeof timestamp === "number") {
+      return new Date(timestamp)
+    }
+
+    // If it's a string
+    if (typeof timestamp === "string") {
+      return new Date(timestamp)
+    }
+
+    // Fallback to current date
+    return new Date()
+  }
+
   const formattedTime = notification.createdAt
-    ? formatDistanceToNow(notification.createdAt.toDate(), { addSuffix: true, locale: es })
-    : ""
+    ? formatDistanceToNow(getDateFromTimestamp(notification.createdAt), {
+        addSuffix: true,
+        locale: es,
+      })
+    : "Hace un momento"
 
   return (
     <div
       className={cn(
-        "p-4 hover:bg-muted/50 cursor-pointer transition-colors",
-        notification.read ? "bg-white" : "bg-blue-50",
+        "p-4 hover:bg-muted/50 cursor-pointer transition-colors border-b border-border/50 last:border-b-0",
+        notification.read ? "bg-background" : "bg-blue-50 dark:bg-blue-950/20",
       )}
       onClick={handleClick}
     >
       <div className="flex items-start gap-3">
         <div className="flex-shrink-0 mt-1">{getIcon()}</div>
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-medium">{notification.title}</p>
-          <p className="text-sm text-muted-foreground line-clamp-2">{notification.message}</p>
-          <p className="text-xs text-muted-foreground mt-1">{formattedTime}</p>
+          <p
+            className={cn(
+              "text-sm line-clamp-1",
+              notification.read ? "font-normal text-muted-foreground" : "font-medium text-foreground",
+            )}
+          >
+            {notification.title}
+          </p>
+          <p className="text-sm text-muted-foreground line-clamp-2 mt-1">{notification.message}</p>
+          <p className="text-xs text-muted-foreground mt-2 flex items-center gap-1">
+            <span>{formattedTime}</span>
+            {!notification.read && <span className="inline-block w-2 h-2 bg-blue-500 rounded-full ml-2" />}
+          </p>
         </div>
         <div className="flex-shrink-0 flex items-center">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" onClick={(e) => e.stopPropagation()}>
+              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={(e) => e.stopPropagation()}>
                 <MoreVertical className="h-4 w-4" />
                 <span className="sr-only">Opciones</span>
               </Button>
@@ -105,7 +153,7 @@ export function NotificationItem({ notification }: NotificationItemProps) {
               {!notification.read && (
                 <DropdownMenuItem onClick={handleMarkAsRead} disabled={isMarking}>
                   <Check className="h-4 w-4 mr-2" />
-                  Marcar como leída
+                  {isMarking ? "Marcando..." : "Marcar como leída"}
                 </DropdownMenuItem>
               )}
               <DropdownMenuItem
@@ -114,7 +162,7 @@ export function NotificationItem({ notification }: NotificationItemProps) {
                 className="text-destructive focus:text-destructive"
               >
                 <X className="h-4 w-4 mr-2" />
-                Eliminar
+                {isDeleting ? "Eliminando..." : "Eliminar"}
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>

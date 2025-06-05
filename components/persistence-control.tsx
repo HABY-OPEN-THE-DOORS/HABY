@@ -1,13 +1,12 @@
 /**
- * HABY-CLASS - Control de Persistencia de Datos
+ * HABY-CLASS - Control de Persistencia de Datos CORREGIDO
  * Permite a los usuarios gestionar la temporalidad de sus datos
  */
 
 "use client"
 
 import type React from "react"
-
-import { useState } from "react"
+import { useState, useCallback } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Switch } from "@/components/ui/switch"
@@ -61,17 +60,25 @@ export function PersistenceControl({
   const { toast } = useToast()
   const { can } = usePermissions()
 
-  const handleSave = async () => {
-    const success = await onSave()
-    if (success) {
+  const handleSave = useCallback(async () => {
+    try {
+      const success = await onSave()
+      if (success) {
+        toast({
+          title: "Guardado exitoso",
+          description: `${dataType} ${isPersistent ? "guardados permanentemente" : "guardados temporalmente"}`,
+        })
+      }
+    } catch (error) {
       toast({
-        title: "Guardado exitoso",
-        description: `${dataType} ${isPersistent ? "guardados permanentemente" : "guardados temporalmente"}`,
+        title: "Error al guardar",
+        description: "No se pudieron guardar los datos",
+        variant: "destructive",
       })
     }
-  }
+  }, [onSave, isPersistent, dataType, toast])
 
-  const handleExport = async () => {
+  const handleExport = useCallback(async () => {
     if (!onExport) return
 
     try {
@@ -97,6 +104,7 @@ export function PersistenceControl({
         })
       }
     } catch (error) {
+      console.error("Error en exportación:", error)
       toast({
         title: "Error en exportación",
         description: "No se pudieron exportar los datos",
@@ -105,44 +113,65 @@ export function PersistenceControl({
     } finally {
       setIsExporting(false)
     }
-  }
+  }, [onExport, dataType, toast])
 
-  const handleImport = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    if (!onImport || !event.target.files?.[0]) return
+  const handleImport = useCallback(
+    async (event: React.ChangeEvent<HTMLInputElement>) => {
+      if (!onImport || !event.target.files?.[0]) return
 
-    try {
-      setIsImporting(true)
-      const file = event.target.files[0]
-      const text = await file.text()
-      const data = JSON.parse(text)
+      try {
+        setIsImporting(true)
+        const file = event.target.files[0]
 
-      onImport(data)
+        // Validar tipo de archivo
+        if (!file.name.endsWith(".json")) {
+          throw new Error("Solo se permiten archivos JSON")
+        }
 
-      toast({
-        title: "Importación exitosa",
-        description: `${dataType} importados correctamente`,
-      })
-    } catch (error) {
-      toast({
-        title: "Error en importación",
-        description: "El archivo no es válido o está corrupto",
-        variant: "destructive",
-      })
-    } finally {
-      setIsImporting(false)
-      // Limpiar el input
-      event.target.value = ""
-    }
-  }
+        // Validar tamaño de archivo (máximo 10MB)
+        if (file.size > 10 * 1024 * 1024) {
+          throw new Error("El archivo es demasiado grande (máximo 10MB)")
+        }
 
-  const getExpirationStatus = () => {
+        const text = await file.text()
+        const data = JSON.parse(text)
+
+        // Validación básica de estructura
+        if (!data || typeof data !== "object") {
+          throw new Error("Estructura de archivo inválida")
+        }
+
+        onImport(data)
+
+        toast({
+          title: "Importación exitosa",
+          description: `${dataType} importados correctamente`,
+        })
+      } catch (error) {
+        console.error("Error en importación:", error)
+        const errorMessage = error instanceof Error ? error.message : "El archivo no es válido o está corrupto"
+        toast({
+          title: "Error en importación",
+          description: errorMessage,
+          variant: "destructive",
+        })
+      } finally {
+        setIsImporting(false)
+        // Limpiar el input
+        event.target.value = ""
+      }
+    },
+    [onImport, dataType, toast],
+  )
+
+  const getExpirationStatus = useCallback(() => {
     if (!expiresAt) return null
 
     const now = new Date()
     const timeLeft = expiresAt.getTime() - now.getTime()
 
     if (timeLeft <= 0) {
-      return { status: "expired", message: "Expirado", color: "destructive" }
+      return { status: "expired", message: "Expirado", color: "destructive" as const }
     }
 
     const hoursLeft = Math.floor(timeLeft / (1000 * 60 * 60))
@@ -150,20 +179,34 @@ export function PersistenceControl({
 
     if (hoursLeft > 0) {
       return {
-        status: "active",
+        status: "active" as const,
         message: `Expira en ${hoursLeft}h ${minutesLeft}m`,
-        color: hoursLeft < 1 ? "destructive" : hoursLeft < 4 ? "warning" : "secondary",
+        color: (hoursLeft < 1 ? "destructive" : hoursLeft < 4 ? "secondary" : "secondary") as const,
       }
     } else {
       return {
-        status: "active",
+        status: "active" as const,
         message: `Expira en ${minutesLeft}m`,
-        color: minutesLeft < 30 ? "destructive" : "warning",
+        color: (minutesLeft < 30 ? "destructive" : "secondary") as const,
       }
     }
-  }
+  }, [expiresAt])
 
   const expirationStatus = getExpirationStatus()
+
+  const handleExpirationChange = useCallback(
+    (value: string) => {
+      const minutes = value === "null" ? null : Number.parseInt(value)
+      onExpirationChange(minutes)
+    },
+    [onExpirationChange],
+  )
+
+  const getCurrentExpirationValue = useCallback(() => {
+    if (!expiresAt) return "null"
+    const timeLeft = Math.round((expiresAt.getTime() - Date.now()) / 60000)
+    return timeLeft > 0 ? String(timeLeft) : "null"
+  }, [expiresAt])
 
   return (
     <Card className={`shadow-soft ${className}`}>
@@ -185,7 +228,7 @@ export function PersistenceControl({
           <div className="flex items-center gap-2">
             <Badge variant={isPersistent ? "default" : "secondary"}>{isPersistent ? "Permanente" : "Temporal"}</Badge>
             {expirationStatus && (
-              <Badge variant={expirationStatus.color as any}>
+              <Badge variant={expirationStatus.color}>
                 <Clock className="h-3 w-3 mr-1" />
                 {expirationStatus.message}
               </Badge>
@@ -222,10 +265,7 @@ export function PersistenceControl({
           {!isPersistent && (
             <div className="space-y-2">
               <Label className="text-sm font-medium">Tiempo de expiración</Label>
-              <Select
-                value={expiresAt ? String(Math.round((expiresAt.getTime() - Date.now()) / 60000)) : "null"}
-                onValueChange={(value) => onExpirationChange(value === "null" ? null : Number.parseInt(value))}
-              >
+              <Select value={getCurrentExpirationValue()} onValueChange={handleExpirationChange} disabled={isLoading}>
                 <SelectTrigger>
                   <SelectValue placeholder="Seleccionar tiempo de expiración" />
                 </SelectTrigger>
@@ -259,7 +299,7 @@ export function PersistenceControl({
           {(can("export_data") || can("import_data")) && (
             <div className="flex items-center gap-2">
               {onExport && can("export_data") && (
-                <Button variant="outline" onClick={handleExport} disabled={isExporting} className="flex-1">
+                <Button variant="outline" onClick={handleExport} disabled={isExporting || isLoading} className="flex-1">
                   <Download className="h-4 w-4 mr-2" />
                   {isExporting ? "Exportando..." : "Exportar"}
                 </Button>
@@ -273,12 +313,12 @@ export function PersistenceControl({
                     onChange={handleImport}
                     className="hidden"
                     id="import-file"
-                    disabled={isImporting}
+                    disabled={isImporting || isLoading}
                   />
                   <Button
                     variant="outline"
                     onClick={() => document.getElementById("import-file")?.click()}
-                    disabled={isImporting}
+                    disabled={isImporting || isLoading}
                     className="w-full"
                   >
                     <Upload className="h-4 w-4 mr-2" />
@@ -299,6 +339,20 @@ export function PersistenceControl({
             </div>
             <p className="text-xs text-destructive/80 mt-1">
               Los datos han expirado y serán eliminados automáticamente. Guarda los cambios para renovar.
+            </p>
+          </div>
+        )}
+
+        {/* Advertencia de datos temporales */}
+        {!isPersistent && !expirationStatus && (
+          <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg">
+            <div className="flex items-center gap-2 text-amber-700">
+              <Clock className="h-4 w-4" />
+              <span className="text-sm font-medium">Datos temporales</span>
+            </div>
+            <p className="text-xs text-amber-600 mt-1">
+              Los datos temporales se eliminarán automáticamente. Configura un tiempo de expiración o cambia a
+              permanente.
             </p>
           </div>
         )}
